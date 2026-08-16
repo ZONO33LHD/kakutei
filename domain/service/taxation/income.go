@@ -2,7 +2,7 @@
 //
 // 全て純粋な計算ロジックであり、リポジトリや外部 I/O に依存しない。
 // 金額は model.Money (円単位の整数)、端数処理は国税庁の規定に従う。
-// 税制定数は domain/policy (令和7年分) を参照する。
+// 税制定数は domain/policy (令和7・8年分) を参照する。
 package taxation
 
 import (
@@ -19,18 +19,26 @@ func validateFiscalYear(year model.FiscalYear) error {
 	}
 	if !policy.SupportsFiscalYear(int(year)) {
 		return apperrors.Newf(apperrors.CodeBadRequest,
-			"課税年度 %d は未対応です (対応年度: %d)", int(year), policy.SupportedFiscalYear)
+			"課税年度 %d は未対応です (対応年度: %d〜%d)",
+			int(year), policy.MinSupportedFiscalYear, policy.MaxSupportedFiscalYear)
 	}
 	return nil
 }
 
-// SalaryIncome は給与収入から給与所得金額を計算する (令和7年分、所得税法第28条)。
+// SalaryIncome は給与収入から給与所得金額を計算する (所得税法第28条)。
 //
 // 国税庁の速算表に従い、収入 660 万円以下は A = 収入÷4 (千円未満切捨) を
-// 用いる端数規定を適用する。戻り値は給与所得金額 (控除後、非負)。
-func SalaryIncome(revenue model.Money) model.Money {
+// 用いる端数規定を適用する。令和8年分は最低保障74万の特例速算 (収入220万未満)
+// が優先される。戻り値は給与所得金額 (控除後、非負)。
+func SalaryIncome(revenue model.Money, year model.FiscalYear) model.Money {
 	if revenue <= 0 {
 		return 0
+	}
+	if int(year) >= 2026 {
+		if income, ok := salaryIncome2026Special(revenue); ok {
+			return income
+		}
+		// 収入220万以上は令和7年分と同じ速算 (下の 190万以下の分岐には到達しない)
 	}
 	switch {
 	case revenue <= policy.SalaryDeductionBracket1:
@@ -45,6 +53,24 @@ func SalaryIncome(revenue model.Money) model.Money {
 		return revenue.MulDiv(policy.SalaryIncomeFactor4Num, policy.SalaryIncomeFactor4Denom) - policy.SalaryIncomeAdjust4
 	default:
 		return revenue - policy.SalaryDeductionMax
+	}
+}
+
+// salaryIncome2026Special は令和8・9年分の特例速算 (収入220万未満) を適用する。
+func salaryIncome2026Special(revenue model.Money) (model.Money, bool) {
+	switch {
+	case revenue < policy.Salary2026Step0Max:
+		return 0, true
+	case revenue < policy.Salary2026Step1Max:
+		return revenue - policy.SalaryDeductionMin2026, true
+	case revenue < policy.Salary2026Step2Max:
+		return policy.Salary2026Step2Income, true
+	case revenue < policy.Salary2026Step3Max:
+		return policy.Salary2026Step3Income, true
+	case revenue < policy.Salary2026Step4Max:
+		return policy.Salary2026Step4Income, true
+	default:
+		return 0, false
 	}
 }
 
@@ -102,7 +128,7 @@ func ValidateBlueReturnDeduction(amount model.Money) error {
 //
 // 給与収入 850万円超で以下のいずれかに該当する場合:
 //   - 本人が特別障害者
-//   - 23歳未満の扶養親族がいる (税法上の年齢、所得要件 58万以下)
+//   - 23歳未満の扶養親族がいる (税法上の年齢、年度別の所得要件を満たす者)
 //   - 特別障害者の同一生計配偶者・扶養親族がいる
 //
 // 控除額 = (min(給与収入, 1,000万) − 850万) × 10% (1円未満切上げ)。
@@ -132,14 +158,15 @@ func salaryAdjustmentEligible(
 	if isSpecial(selfDisability) {
 		return true
 	}
-	// 特別障害者の同一生計配偶者 (所得58万以下)
-	if spouse != nil && spouse.Income <= policy.DependentIncomeMax && isSpecial(spouse.Disability) {
+	incomeMax := policy.DependentIncomeMaxFor(int(year))
+	// 特別障害者の同一生計配偶者
+	if spouse != nil && spouse.Income.Yen() <= incomeMax && isSpecial(spouse.Disability) {
 		return true
 	}
 	yearEnd := year.End()
 	for i := range dependents {
 		dep := &dependents[i]
-		if dep.Income > policy.DependentIncomeMax {
+		if dep.Income.Yen() > incomeMax {
 			continue // 扶養親族の所得要件
 		}
 		// 23歳未満の扶養親族 (16歳未満も含む) または特別障害者の扶養親族

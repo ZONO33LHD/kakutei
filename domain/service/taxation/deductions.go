@@ -58,9 +58,9 @@ func sumItems(items []DeductionItem) model.Money {
 	return total
 }
 
-// BasicDeduction は基礎控除を計算する (令和7年分、所得税法第86条)。
-func BasicDeduction(totalIncome model.Money) model.Money {
-	return model.Money(policy.LookupBracket(policy.BasicDeductionTable, totalIncome.Yen(), 0))
+// BasicDeduction は基礎控除を計算する (所得税法第86条、加算特例込み)。
+func BasicDeduction(totalIncome model.Money, year model.FiscalYear) model.Money {
+	return model.Money(policy.LookupBracket(policy.BasicDeductionTableFor(int(year)), totalIncome.Yen(), 0))
 }
 
 // lifeInsuranceNew は新制度の生命保険料控除 (1区分、上限4万)。
@@ -116,12 +116,49 @@ func lifeInsuranceCategory(newPremium, oldPremium model.Money) model.Money {
 	return oldOnly
 }
 
+// lifeInsuranceNewExpanded は令和8年分限定・子育て世帯特例の一般 (新) の控除額
+// (上限6万円、令和7年度改正)。
+func lifeInsuranceNewExpanded(premium model.Money) model.Money {
+	switch {
+	case premium <= 0:
+		return 0
+	case premium <= policy.LifeInsuranceExpandedBracket1:
+		return premium
+	case premium <= policy.LifeInsuranceExpandedBracket2:
+		return ceilDiv(premium, 2) + policy.LifeInsuranceExpandedAdd2
+	case premium <= policy.LifeInsuranceExpandedBracket3:
+		return ceilDiv(premium, 4) + policy.LifeInsuranceExpandedAdd3
+	default:
+		return policy.LifeInsuranceNewMaxExpanded
+	}
+}
+
 // LifeInsuranceDeduction は生命保険料控除の合計を計算する (3区分、合計上限12万)。
-func LifeInsuranceDeduction(p model.LifeInsurancePremiums) model.Money {
-	general := lifeInsuranceCategory(p.GeneralNew, p.GeneralOld)
+//
+// hasYoungDependent (23歳未満の扶養親族あり) かつ令和8年分の場合、
+// 一般生命保険料の上限を6万円に拡充する子育て世帯特例を適用する。
+func LifeInsuranceDeduction(p model.LifeInsurancePremiums, year model.FiscalYear, hasYoungDependent bool) model.Money {
+	expanded := int(year) == policy.LifeInsuranceChildcareYear && hasYoungDependent
+	general := lifeInsuranceGeneral(p, expanded)
 	medical := lifeInsuranceNew(p.MedicalCare) // 介護医療は新制度のみ
 	annuity := lifeInsuranceCategory(p.AnnuityNew, p.AnnuityOld)
 	return (general + medical + annuity).Min(policy.LifeInsuranceTotalMax)
+}
+
+func lifeInsuranceGeneral(p model.LifeInsurancePremiums, expanded bool) model.Money {
+	if !expanded {
+		return lifeInsuranceCategory(p.GeneralNew, p.GeneralOld)
+	}
+	newOnly := lifeInsuranceNewExpanded(p.GeneralNew)
+	oldOnly := lifeInsuranceOld(p.GeneralOld)
+	if p.GeneralNew > 0 && p.GeneralOld > 0 {
+		combined := (newOnly + oldOnly).Min(policy.LifeInsuranceCombinedMaxExpanded)
+		return newOnly.Max(oldOnly).Max(combined)
+	}
+	if p.GeneralNew > 0 {
+		return newOnly
+	}
+	return oldOnly
 }
 
 // EarthquakeInsuranceDeduction は地震保険料控除を計算する (所得税法第77条)。
@@ -145,7 +182,9 @@ func EarthquakeInsuranceDeduction(earthquakePremium, oldLongTermPremium model.Mo
 }
 
 // WidowDeduction は寡婦控除/ひとり親控除を計算する (所得500万以下)。
-func WidowDeduction(status model.WidowStatus, totalIncome model.Money) model.Money {
+// ひとり親控除の38万への引上げは令和9年分以後のため、令和9年分対応時に
+// year による分岐を追加すること (現対応年度はいずれも35万)。
+func WidowDeduction(status model.WidowStatus, totalIncome model.Money, _ model.FiscalYear) model.Money {
 	if totalIncome > policy.PersonalDeductionIncomeMax {
 		return 0
 	}
@@ -186,9 +225,10 @@ func disabilityDeductionFor(kind model.DisabilityKind) (model.Money, string) {
 	}
 }
 
-// WorkingStudentDeduction は勤労学生控除を計算する (合計所得85万以下)。
-func WorkingStudentDeduction(isWorkingStudent bool, totalIncome model.Money) model.Money {
-	if isWorkingStudent && totalIncome <= policy.WorkingStudentIncomeMax {
+// WorkingStudentDeduction は勤労学生控除を計算する
+// (所得要件: 令和7年分85万以下、令和8年分89万以下)。
+func WorkingStudentDeduction(isWorkingStudent bool, totalIncome model.Money, year model.FiscalYear) model.Money {
+	if isWorkingStudent && totalIncome.Yen() <= policy.WorkingStudentIncomeMaxFor(int(year)) {
 		return policy.WorkingStudentDeduction
 	}
 	return 0
@@ -225,7 +265,8 @@ func DonationIncomeDeduction(donationTotal, totalIncome model.Money) model.Money
 	return (donationTotal.Min(limit) - policy.DonationSelfBurden).ClampNonNegative()
 }
 
-// SpouseDeduction は配偶者控除/配偶者特別控除を計算する (令和7年分)。
+// SpouseDeduction は配偶者控除/配偶者特別控除を計算する。
+// 控除額の区分表は令和7・8年分共通 (同一生計配偶者の所得要件のみ年度依存)。
 //
 // 老人控除対象配偶者 (70歳以上・所得58万以下) は増額された控除を適用する。
 // 年齢は税法上の満年齢 (誕生日前日加齢) で年度末時点を判定する。
@@ -236,8 +277,8 @@ func SpouseDeduction(spouse *model.Spouse, taxpayerIncome model.Money, year mode
 	if taxpayerIncome > policy.SpouseTaxpayerIncomeMax {
 		return 0
 	}
-	// 老人控除対象配偶者: 配偶者控除の対象 (所得58万以下) かつ 70歳以上
-	if spouse.Income <= policy.DependentIncomeMax &&
+	// 老人控除対象配偶者: 配偶者控除の対象 (同一生計配偶者の所得要件) かつ 70歳以上
+	if spouse.Income.Yen() <= policy.DependentIncomeMaxFor(int(year)) &&
 		!spouse.BirthDate.IsZero() &&
 		spouse.BirthDate.TaxAgeAt(year.End()) >= policy.SpouseElderlyAgeMin {
 		switch {
@@ -277,23 +318,24 @@ func DependentDeductions(dependents []model.Dependent, year model.FiscalYear) []
 		age := dep.BirthDate.TaxAgeAt(yearEnd)
 		isSpecificAge := age >= policy.DependentAgeSpecificMin && age < policy.DependentAgeSpecificMax
 
-		// 所得要件: 19〜22歳は123万まで許容 (特定親族特別控除)、それ以外は58万
+		// 所得要件: 19〜22歳は123万まで許容 (特定親族特別控除)、それ以外は扶養要件
+		incomeMax := policy.DependentIncomeMaxFor(int(year))
 		if isSpecificAge {
 			if dep.Income > policy.SpecificRelativeSpecialIncomeMax {
 				continue
 			}
-		} else if dep.Income > policy.DependentIncomeMax {
+		} else if dep.Income.Yen() > incomeMax {
 			continue
 		}
 
-		if item, ok := dependentAgeDeduction(dep, age, isSpecificAge); ok {
+		if item, ok := dependentAgeDeduction(dep, age, isSpecificAge, incomeMax); ok {
 			items = append(items, item)
 		}
 
 		// 障害者控除 (年齢制限なし・16歳未満でも適用可)。
-		// 対象は「扶養親族」なので所得要件 58万以下を満たす場合のみ
-		// (特定親族特別控除の対象者 (所得58万超) は扶養親族ではない)。
-		if dep.Income <= policy.DependentIncomeMax {
+		// 対象は「扶養親族」なので所得要件を満たす場合のみ
+		// (特定親族特別控除の対象者は扶養親族ではない)。
+		if dep.Income.Yen() <= incomeMax {
 			if amount, label := disabilityDeductionFor(dep.Disability); amount > 0 {
 				items = append(items, DeductionItem{
 					Type:    DeductionDisability,
@@ -308,7 +350,7 @@ func DependentDeductions(dependents []model.Dependent, year model.FiscalYear) []
 }
 
 // dependentAgeDeduction は年齢・所得に応じた扶養控除/特定親族特別控除を返す。
-func dependentAgeDeduction(dep *model.Dependent, age int, isSpecificAge bool) (DeductionItem, bool) {
+func dependentAgeDeduction(dep *model.Dependent, age int, isSpecificAge bool, incomeMax int64) (DeductionItem, bool) {
 	switch {
 	case age >= policy.DependentAgeElderly:
 		// 同居老親等 (58万) は本人または配偶者の直系尊属かつ同居の場合のみ。
@@ -326,7 +368,7 @@ func dependentAgeDeduction(dep *model.Dependent, age int, isSpecificAge bool) (D
 			Details: fmt.Sprintf("%s（老人扶養）", dep.Name),
 		}, true
 	case isSpecificAge:
-		if dep.Income <= policy.DependentIncomeMax {
+		if dep.Income.Yen() <= incomeMax {
 			return DeductionItem{
 				Type: DeductionDependent, Name: "扶養控除",
 				Amount:  policy.DependentSpecific,
@@ -355,13 +397,13 @@ func dependentAgeDeduction(dep *model.Dependent, age int, isSpecificAge bool) (D
 	}
 }
 
-// spouseDisabilityItem は同一生計配偶者 (所得58万以下) の障害者控除を返す。
+// spouseDisabilityItem は同一生計配偶者の障害者控除を返す。
 // 配偶者控除とは独立に適用できる (所得税法第79条)。
-func spouseDisabilityItem(spouse *model.Spouse) (DeductionItem, bool) {
+func spouseDisabilityItem(spouse *model.Spouse, year model.FiscalYear) (DeductionItem, bool) {
 	if spouse == nil || spouse.OtherTaxpayerDependent {
 		return DeductionItem{}, false
 	}
-	if spouse.Income > policy.DependentIncomeMax {
+	if spouse.Income.Yen() > policy.DependentIncomeMaxFor(int(year)) {
 		return DeductionItem{}, false
 	}
 	amount, label := disabilityDeductionFor(spouse.Disability)

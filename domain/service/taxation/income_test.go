@@ -31,7 +31,35 @@ func TestSalaryIncome(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := SalaryIncome(tt.revenue); got != tt.want {
+			if got := SalaryIncome(tt.revenue, 2025); got != tt.want {
+				t.Errorf("SalaryIncome(%d) = %d, want %d", tt.revenue.Yen(), got.Yen(), tt.want.Yen())
+			}
+		})
+	}
+}
+
+// 令和8年分の給与所得: 最低保障74万の特例速算 (収入220万未満)。220万以上は改正なし。
+func TestSalaryIncome2026(t *testing.T) {
+	tests := []struct {
+		name    string
+		revenue model.Money
+		want    model.Money
+	}{
+		{"74.1万未満は所得0", 740_999, 0},
+		{"74.1万以上は収入-74万", 741_000, 1_000},
+		{"150万", 1_500_000, 760_000},
+		{"219.1万手前", 2_190_999, 1_450_999},
+		{"219.1万以上は145.1万", 2_191_000, 1_451_000},
+		{"219.3万以上は145.3万", 2_193_000, 1_453_000},
+		{"219.6万境界の手前", 2_195_999, 1_453_000},
+		{"219.6万以上は145.6万", 2_196_000, 1_456_000},
+		{"220万境界の手前", 2_199_999, 1_456_000},
+		{"220万以上は従来速算", 2_200_000, 1_460_000}, // A=550,000×2.8−8万
+		{"300万は令和7年分と同額", 3_000_000, 2_020_000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SalaryIncome(tt.revenue, 2026); got != tt.want {
 				t.Errorf("SalaryIncome(%d) = %d, want %d", tt.revenue.Yen(), got.Yen(), tt.want.Yen())
 			}
 		})

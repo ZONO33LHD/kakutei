@@ -2,12 +2,13 @@ package policy
 
 import "testing"
 
-// 税制定数は令和7年分 (2025) のみ対応。他年度への誤適用を防ぐ。
+// 税制定数は令和7年分 (2025)・令和8年分 (2026) に対応。他年度への誤適用を防ぐ。
+// (令和8年度改正により基礎控除・給与所得・所得要件は年度別の表を使う)
 func TestSupportsFiscalYear(t *testing.T) {
-	if !SupportsFiscalYear(2025) {
-		t.Error("2025 はサポートされるべき")
+	if !SupportsFiscalYear(2025) || !SupportsFiscalYear(2026) {
+		t.Error("2025・2026 はサポートされるべき")
 	}
-	if SupportsFiscalYear(2024) || SupportsFiscalYear(2026) {
+	if SupportsFiscalYear(2024) || SupportsFiscalYear(2027) {
 		t.Error("未対応年度がサポート扱いになっている")
 	}
 }
@@ -27,7 +28,7 @@ func TestLookupBracket(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := LookupBracket(BasicDeductionTable, tt.income, 0); got != tt.want {
+			if got := LookupBracket(BasicDeductionTableFor(2025), tt.income, 0); got != tt.want {
 				t.Errorf("LookupBracket(%d) = %d, want %d", tt.income, got, tt.want)
 			}
 		})

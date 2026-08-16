@@ -34,9 +34,10 @@ func buildIncomeDeductionItems(in *IncomeTaxInput, aggregateIncome, totalIncome 
 		}
 	}
 
-	add(DeductionBasic, "基礎控除", BasicDeduction(aggregateIncome), "")
+	add(DeductionBasic, "基礎控除", BasicDeduction(aggregateIncome, in.FiscalYear), "")
 	add(DeductionSocialInsurance, "社会保険料控除", in.SocialInsurance, "")
-	add(DeductionLifeInsurance, "生命保険料控除", LifeInsuranceDeduction(in.LifeInsurance), "")
+	add(DeductionLifeInsurance, "生命保険料控除",
+		LifeInsuranceDeduction(in.LifeInsurance, in.FiscalYear, hasYoungDependent(in.Dependents, in.FiscalYear)), "")
 	add(DeductionEarthquakeInsurance, "地震保険料控除",
 		EarthquakeInsuranceDeduction(in.EarthquakeInsurancePremium, in.OldLongTermInsurancePremium), "")
 
@@ -46,12 +47,12 @@ func buildIncomeDeductionItems(in *IncomeTaxInput, aggregateIncome, totalIncome 
 	items = append(items, medicalOrSelfMedicationItems(in, totalIncome)...)
 
 	add(DeductionSpouse, "配偶者控除", SpouseDeduction(in.Spouse, aggregateIncome, in.FiscalYear), "")
-	if item, ok := spouseDisabilityItem(in.Spouse); ok {
+	if item, ok := spouseDisabilityItem(in.Spouse, in.FiscalYear); ok {
 		items = append(items, item)
 	}
 	items = append(items, DependentDeductions(in.Dependents, in.FiscalYear)...)
 
-	if w := WidowDeduction(in.WidowStatus, aggregateIncome); w > 0 {
+	if w := WidowDeduction(in.WidowStatus, aggregateIncome, in.FiscalYear); w > 0 {
 		name := "寡婦控除"
 		if in.WidowStatus == model.WidowSingleParent {
 			name = "ひとり親控除"
@@ -59,9 +60,29 @@ func buildIncomeDeductionItems(in *IncomeTaxInput, aggregateIncome, totalIncome 
 		add(DeductionWidow, name, w, "")
 	}
 	add(DeductionDisabilitySelf, "障害者控除（本人）", SelfDisabilityDeduction(in.SelfDisability), "")
-	add(DeductionWorkingStudent, "勤労学生控除", WorkingStudentDeduction(in.IsWorkingStudent, aggregateIncome), "")
+	add(DeductionWorkingStudent, "勤労学生控除",
+		WorkingStudentDeduction(in.IsWorkingStudent, aggregateIncome, in.FiscalYear), "")
 
 	return items
+}
+
+// hasYoungDependent は23歳未満の扶養親族 (所得要件を満たす者) がいるかを返す
+// (生命保険料控除の子育て世帯特例の判定)。
+// 所得金額調整控除と同様、扶養控除と異なり同じ親族について夫婦双方が
+// 適用できるため OtherTaxpayerDependent では除外しない。
+func hasYoungDependent(dependents []model.Dependent, year model.FiscalYear) bool {
+	yearEnd := year.End()
+	incomeMax := policy.DependentIncomeMaxFor(int(year))
+	for i := range dependents {
+		dep := &dependents[i]
+		if dep.Income.Yen() > incomeMax {
+			continue
+		}
+		if dep.BirthDate.TaxAgeAt(yearEnd) < policy.SalaryAdjustmentChildAge {
+			return true
+		}
+	}
+	return false
 }
 
 // mutualAidDetails は小規模企業共済等掛金控除の内訳表示を返す。

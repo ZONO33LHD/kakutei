@@ -1,18 +1,24 @@
-// Package policy は税制定数 (令和7年分 / 2025年課税年度) を一元管理する。
+// Package policy は税制定数 (令和7年分・令和8年分 = 2025・2026年課税年度) を一元管理する。
 //
 // 全ての税法関連の定数・速算表をこのパッケージに集約する。
 // 金額は円単位の int64。税率は「分子/分母」の整数ペアで表現し浮動小数点は使わない。
-// 税法改正時はこのパッケージのみ更新すればよい。
+// 年度によって異なる値は XxxFor(year) 関数で提供する。税法改正時はこのパッケージのみ更新すればよい。
 package policy
 
-// SupportedFiscalYear はこのパッケージの定数が対応する課税年度。
-// 税計算サービスは計算前に SupportsFiscalYear で照合し、
-// 未対応年度への誤適用 (例: 2024年分に令和7年の控除表を使う) を防ぐ。
-const SupportedFiscalYear = 2025
+// 対応する課税年度の範囲。税計算サービスは計算前に SupportsFiscalYear で照合し、
+// 未対応年度への誤適用を防ぐ。
+//
+// 令和8年度税制改正 (令和8年12月1日施行、令和8年分以後適用) により、
+// 基礎控除・給与所得控除・扶養親族等の所得要件は令和7年分と令和8年分で異なる。
+// 年度依存の値は XxxFor(year) 関数で取得すること。
+const (
+	MinSupportedFiscalYear = 2025
+	MaxSupportedFiscalYear = 2026
+)
 
 // SupportsFiscalYear は課税年度がこの税制定数群でサポートされるかを返す。
 func SupportsFiscalYear(year int) bool {
-	return year == SupportedFiscalYear
+	return year >= MinSupportedFiscalYear && year <= MaxSupportedFiscalYear
 }
 
 // BracketEntry は「上限額まで一定額」型テーブルの1行。
@@ -34,13 +40,14 @@ func LookupBracket(table []BracketEntry, income int64, fallback int64) int64 {
 }
 
 // ============================================================
-// 基礎控除 (令和7年分)
-// 所得税法第86条、租税特別措置法第41条の16の2 (令和7年改正)
-// R7-8: 本則改正 (48万→58万) + 加算特例
+// 基礎控除 (所得税法第86条、租税特別措置法第41条の16の2)
+// 令和7年分: 本則58万 + 令和7年度改正の加算特例
+// 令和8年分: 本則62万 + 令和8年度改正の加算特例 (489万以下+42万、655万以下+5万)
+// 2,350万超の区分 (48/32/16/0) は両年度共通。加算特例は居住者のみ。
 // ============================================================
 
-// BasicDeductionTable は合計所得金額に応じた基礎控除額。2,500万超は 0 円。
-var BasicDeductionTable = []BracketEntry{
+// basicDeductionTable2025 は令和7年分の基礎控除額。2,500万超は 0 円。
+var basicDeductionTable2025 = []BracketEntry{
 	{1_320_000, 950_000},  // ≤132万: 95万 (本則58万+加算37万)
 	{3_360_000, 880_000},  // 132万超〜336万: 88万
 	{4_890_000, 680_000},  // 336万超〜489万: 68万
@@ -51,12 +58,31 @@ var BasicDeductionTable = []BracketEntry{
 	{25_000_000, 160_000}, // 2,450万超〜2,500万: 16万
 }
 
+// basicDeductionTable2026 は令和8年分の基礎控除額 (国税庁「令和8年4月
+// 源泉所得税の改正のあらまし」⑴)。2,500万超は 0 円。
+var basicDeductionTable2026 = []BracketEntry{
+	{4_890_000, 1_040_000}, // ≤489万: 104万 (本則62万+加算42万)
+	{6_550_000, 670_000},   // 489万超〜655万: 67万 (本則62万+加算5万)
+	{23_500_000, 620_000},  // 655万超〜2,350万: 62万 (本則のみ)
+	{24_000_000, 480_000},  // 2,350万超の区分は改正なし
+	{24_500_000, 320_000},
+	{25_000_000, 160_000},
+}
+
+// BasicDeductionTableFor は課税年度の基礎控除表を返す。
+func BasicDeductionTableFor(year int) []BracketEntry {
+	if year >= 2026 {
+		return basicDeductionTable2026
+	}
+	return basicDeductionTable2025
+}
+
 // ============================================================
-// 給与所得控除 (令和7年分)
-// 所得税法第28条第3項 (令和7年改正: 最低保障額 55万→65万)
+// 給与所得控除 (所得税法第28条第3項、租税特別措置法第29条の4)
+// 令和7年分: 最低保障額65万。令和8年分: 最低保障額74万 (恒久69万+令和8・9年分の特例5万)
 // ============================================================
 
-// 給与所得金額は国税庁の速算表 (令和7年分) に従って直接計算する。
+// 給与所得金額は国税庁の速算表に従って直接計算する。令和7年分:
 // 収入 660万円以下は A = 収入÷4 (千円未満切捨) を用いる端数規定がある:
 //
 //	≤190万:          給与所得 = 収入 − 65万 (マイナスは0)
@@ -89,6 +115,28 @@ const (
 	SalaryIncomeFactor4Num   = 9
 	SalaryIncomeFactor4Denom = 10
 	SalaryIncomeAdjust4      = 1_100_000
+)
+
+// 令和8・9年分の給与所得の特例 (国税庁「令和8年4月 源泉所得税の改正のあらまし」⑵ハ):
+// 収入 220万円未満は最低保障74万を基礎とした次の速算になる。220万円以上は改正なし。
+//
+//	74.1万未満:              所得 0
+//	74.1万以上219.1万未満:    収入 − 74万
+//	219.1万以上219.3万未満:   145.1万
+//	219.3万以上219.6万未満:   145.3万
+//	219.6万以上220万未満:     145.6万
+const (
+	SalaryDeductionMin2026 = 740_000 // 最低保障額 (恒久69万 + 令和8・9年分の特例5万)
+
+	Salary2026Step0Max = 741_000   // これ未満は所得0
+	Salary2026Step1Max = 2_191_000 // これ未満は 収入−74万
+	Salary2026Step2Max = 2_193_000 // これ未満は 145.1万
+	Salary2026Step3Max = 2_196_000 // これ未満は 145.3万
+	Salary2026Step4Max = 2_200_000 // これ未満は 145.6万
+
+	Salary2026Step2Income = 1_451_000
+	Salary2026Step3Income = 1_453_000
+	Salary2026Step4Income = 1_456_000
 )
 
 // 所得金額調整控除 (子ども・特別障害者等、租税特別措置法第41条の3の11)。
@@ -124,6 +172,23 @@ const (
 	LifeInsuranceTotalMax    = 120_000 // 3区分合計上限
 )
 
+// 令和8年分限定の子育て世帯特例 (令和7年度改正):
+// 23歳未満の扶養親族を有する場合、一般生命保険料 (新制度) の上限を6万円に拡充する。
+//
+//	≤3万: 全額 / 3万超〜6万: /2+15,000 / 6万超〜12万: /4+30,000 / 12万超: 60,000
+//
+// 新旧併用時の一般枠上限も6万円になる。3区分合計の12万円上限は不変。
+const (
+	LifeInsuranceChildcareYear       = 2026    // 特例の適用年度 (令和8年分のみ)
+	LifeInsuranceNewMaxExpanded      = 60_000  // 拡充後の一般 (新) 上限
+	LifeInsuranceExpandedBracket1    = 30_000  // ≤3万: 全額
+	LifeInsuranceExpandedBracket2    = 60_000  // 3万超〜6万: /2+15,000
+	LifeInsuranceExpandedBracket3    = 120_000 // 6万超〜12万: /4+30,000
+	LifeInsuranceExpandedAdd2        = 15_000
+	LifeInsuranceExpandedAdd3        = 30_000
+	LifeInsuranceCombinedMaxExpanded = 60_000 // 特例適用時の新旧合算一般枠上限
+)
+
 // ============================================================
 // 地震保険料控除 (所得税法第77条)
 // ============================================================
@@ -136,13 +201,13 @@ const (
 )
 
 // ============================================================
-// 人的控除 (令和7年分)
+// 人的控除
 // ============================================================
 
 const (
 	// 寡婦控除・ひとり親控除 (所得税法第81条・第81条の2)
 	WidowDeduction             = 270_000   // 寡婦控除
-	SingleParentDeduction      = 350_000   // ひとり親控除
+	SingleParentDeduction      = 350_000   // ひとり親控除 (38万への引上げは令和9年分以後のため対象外)
 	PersonalDeductionIncomeMax = 5_000_000 // 人的控除の所得制限
 
 	// 障害者控除 (所得税法第79条)
@@ -150,17 +215,24 @@ const (
 	DisabilitySpecial           = 400_000 // 特別障害者
 	DisabilitySpecialCohabiting = 750_000 // 同居特別障害者
 
-	// 勤労学生控除 (所得税法第82条、令和7年改正: 所得要件 75万→85万)
+	// 勤労学生控除 (所得税法第82条)
 	WorkingStudentDeduction = 270_000
-	WorkingStudentIncomeMax = 850_000
 )
+
+// WorkingStudentIncomeMaxFor は勤労学生控除の所得要件を返す
+// (令和7年分: 85万、令和8年分以後: 89万)。
+func WorkingStudentIncomeMaxFor(year int) int64 {
+	if year >= 2026 {
+		return 890_000
+	}
+	return 850_000
+}
 
 // ============================================================
 // 扶養控除 (所得税法第84条)
 // ============================================================
 
 const (
-	DependentIncomeMax         = 580_000 // 扶養親族の所得要件 (令和7年改正: 48万→58万)
 	DependentGeneral           = 380_000 // 一般扶養 (16歳以上)
 	DependentSpecific          = 630_000 // 特定扶養 (19歳以上23歳未満)
 	DependentElderly           = 480_000 // 老人扶養 (70歳以上、別居)
@@ -173,11 +245,22 @@ const (
 	DependentAgeElderly     = 70 // 老人扶養の最低年齢
 )
 
+// DependentIncomeMaxFor は扶養親族・同一生計配偶者・ひとり親の子の所得要件を返す
+// (令和7年分: 58万、令和8年分以後: 62万)。
+func DependentIncomeMaxFor(year int) int64 {
+	if year >= 2026 {
+		return 620_000
+	}
+	return 580_000
+}
+
 // SpecificRelativeSpecialDeductionTable は特定親族特別控除
 // (令和7年新設、租税特別措置法第41条の17)。
-// 19〜22歳の親族で所得58万超〜123万以下に段階適用する。
+// 19〜22歳の親族で所得が扶養要件超〜123万以下に段階適用する
+// (下限は DependentIncomeMaxFor に連動: 令和7年分 58万超、令和8年分 62万超。
+// 控除額の区分は両年度共通)。
 var SpecificRelativeSpecialDeductionTable = []BracketEntry{
-	{850_000, 630_000},   // 58万超〜85万: 63万
+	{850_000, 630_000},   // 〜85万: 63万
 	{900_000, 610_000},   // 85万超〜90万: 61万
 	{950_000, 510_000},   // 90万超〜95万: 51万
 	{1_000_000, 410_000}, // 95万超〜100万: 41万
@@ -374,11 +457,49 @@ var HousingLoanLimitsR6R7Childcare = map[HousingCategoryKey]int64{
 	{"general", false}:          20_000_000,
 }
 
+// HousingLoanLimitsR8 は令和8年入居 (一般世帯) の年末残高上限
+// (令和8年度税制改正で適用期限は令和12年末まで延長されたが、
+// 令和9年以降入居は省エネ基準適合新築の経過措置等の追加要件があるため、
+// 対応課税年度の拡張時に一次資料を確認して別表として追加する)。
+// 一般住宅の新築等は対象外。中古は認定・ZEHが引上げ、省エネ適合は引下げ。
+var HousingLoanLimitsR8 = map[HousingCategoryKey]int64{
+	{"certified", true}:         45_000_000,
+	{"zeh", true}:               35_000_000,
+	{"energy_efficient", true}:  20_000_000,
+	{"general", true}:           0,
+	{"certified", false}:        35_000_000,
+	{"zeh", false}:              35_000_000,
+	{"energy_efficient", false}: 20_000_000,
+	{"general", false}:          20_000_000,
+}
+
+// HousingLoanLimitsR8Childcare は令和8年入居 (子育て世帯・若者夫婦世帯)。
+// 中古にも上乗せが適用される (一般中古は上乗せなし)。
+var HousingLoanLimitsR8Childcare = map[HousingCategoryKey]int64{
+	{"certified", true}:         50_000_000,
+	{"zeh", true}:               45_000_000,
+	{"energy_efficient", true}:  30_000_000,
+	{"general", true}:           0,
+	{"certified", false}:        45_000_000,
+	{"zeh", false}:              45_000_000,
+	{"energy_efficient", false}: 30_000_000,
+	{"general", false}:          20_000_000,
+}
+
 const (
-	// HousingLoanGeneralR5Confirmed は R5 以前建築確認済み一般住宅新築の特例上限。
+	// HousingLoanRenovationLimit は増改築等の年末残高上限 (性能区分によらず一律、控除期間10年)。
+	HousingLoanRenovationLimit = 20_000_000
+	// HousingLoanGeneralR5Confirmed は R5 以前建築確認済み一般住宅新築の特例上限
+	// (令和6〜7年入居のみの措置)。
 	HousingLoanGeneralR5Confirmed = 20_000_000
 	// HousingLoanR4R5LastYear はこの年以前の入居に R4-R5 テーブルを適用する。
 	HousingLoanR4R5LastYear = 2023
+	// HousingLoanR6R7LastYear はこの年以前の入居に R6-R7 テーブルを適用する。
+	HousingLoanR6R7LastYear = 2025
+	// HousingLoanTableLastYear はテーブルを実装済みの最終入居年 (令和8年末)。
+	// 対応課税年度 (令和7・8年分) の申告に令和9年以降の入居は現れない。
+	// これより後の入居分は誤適用を防ぐため計算をエラーで拒否する。
+	HousingLoanTableLastYear = 2026
 	// HousingLoanIncomeLimit は適用要件の合計所得金額上限 (令和4年以降入居)。
 	HousingLoanIncomeLimit = 20_000_000
 )

@@ -14,7 +14,6 @@ func usedHouseDetail(t *testing.T, kind model.HousingKind, balance, cost model.M
 		Category:             policy.HousingGeneral,
 		MoveInDate:           mustDate(t, "2025-04-01"),
 		YearEndBalance:       balance,
-		IsNewConstruction:    false,
 		DualApplicationGroup: "loan-01",
 		CostForProration:     cost,
 	}
@@ -109,7 +108,6 @@ func TestHousingLoanCreditSingle(t *testing.T) {
 
 	// R6-R7 一般住宅新築は原則対象外 (限度額0)
 	newGeneral := d
-	newGeneral.IsNewConstruction = true
 	newGeneral.Kind = model.HousingNewCustom
 	credit, err = HousingLoanCredit(&newGeneral)
 	if err != nil {
@@ -132,7 +130,7 @@ func TestHousingLoanCreditSingle(t *testing.T) {
 	// R4-R5入居の認定住宅新築: 限度額5,000万
 	r5 := model.HousingLoanDetail{
 		Kind: model.HousingNewCustom, Category: policy.HousingCertified,
-		MoveInDate: mustDate(t, "2023-06-01"), YearEndBalance: 60_000_000, IsNewConstruction: true,
+		MoveInDate: mustDate(t, "2023-06-01"), YearEndBalance: 60_000_000,
 	}
 	credit, err = HousingLoanCredit(&r5)
 	if err != nil {
@@ -186,6 +184,108 @@ func TestHousingLoanCreditAcquisitionCostCap(t *testing.T) {
 	}
 	if credit != 70_000 { // min(2000万, 1000万, 2000万)×0.7%
 		t.Errorf("= %d, want 70000", credit.Yen())
+	}
+}
+
+// 令和8年入居のテーブル (令和8年度税制改正)。
+func TestHousingLoanCreditMoveIn2026(t *testing.T) {
+	// 認定住宅新築・子育て世帯: 限度額5,000万
+	certified := model.HousingLoanDetail{
+		Kind: model.HousingNewCustom, Category: policy.HousingCertified,
+		MoveInDate: mustDate(t, "2026-04-01"), YearEndBalance: 60_000_000,
+		IsChildcareHousehold: true,
+	}
+	credit, err := HousingLoanCredit(&certified)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 350_000 {
+		t.Errorf("認定新築・子育て = %d, want 350000", credit.Yen())
+	}
+
+	// 一般中古: 限度額2,000万 (子育て上乗せなし)
+	used := usedHouseDetail(t, model.HousingUsed, 25_000_000, 0)
+	used.DualApplicationGroup = ""
+	used.MoveInDate = mustDate(t, "2026-04-01")
+	used.IsChildcareHousehold = true
+	credit, err = HousingLoanCredit(&used)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 140_000 {
+		t.Errorf("一般中古 = %d, want 140000", credit.Yen())
+	}
+
+	// 省エネ基準適合の中古・子育て世帯: 限度額3,000万に上乗せ
+	efficient := used
+	efficient.Category = policy.HousingEnergyEfficient
+	efficient.YearEndBalance = 40_000_000
+	credit, err = HousingLoanCredit(&efficient)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 210_000 {
+		t.Errorf("省エネ中古・子育て = %d, want 210000", credit.Yen())
+	}
+
+	// 買取再販の認定住宅は新築・買取再販の表を使う (子育て世帯: 5,000万)
+	resale := certified
+	resale.Kind = model.HousingResale
+	credit, err = HousingLoanCredit(&resale)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 350_000 {
+		t.Errorf("認定買取再販・子育て = %d, want 350000 (5,000万×0.7%%)", credit.Yen())
+	}
+
+	// 一般 (その他) の買取再販は性能要件を満たさないため既存住宅扱い (2,000万)
+	generalResale := usedHouseDetail(t, model.HousingResale, 25_000_000, 0)
+	generalResale.DualApplicationGroup = ""
+	generalResale.MoveInDate = mustDate(t, "2026-04-01")
+	credit, err = HousingLoanCredit(&generalResale)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 140_000 {
+		t.Errorf("一般買取再販 = %d, want 140000 (2,000万×0.7%%)", credit.Yen())
+	}
+
+	// 増改築は性能区分によらず一律2,000万
+	renovation := usedHouseDetail(t, model.HousingRenovation, 25_000_000, 0)
+	renovation.DualApplicationGroup = ""
+	renovation.MoveInDate = mustDate(t, "2026-04-01")
+	renovation.Category = policy.HousingCertified
+	credit, err = HousingLoanCredit(&renovation)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 140_000 {
+		t.Errorf("認定区分の増改築 = %d, want 140000 (一律2,000万×0.7%%)", credit.Yen())
+	}
+
+	// 一般住宅新築は対象外 (R5確認済み特例は令和7年入居までで終了)
+	newGeneral := usedHouseDetail(t, model.HousingUsed, 25_000_000, 0)
+	newGeneral.DualApplicationGroup = ""
+	newGeneral.MoveInDate = mustDate(t, "2026-04-01")
+	newGeneral.Kind = model.HousingNewCustom
+	newGeneral.HasPreR6Permit = true
+	credit, err = HousingLoanCredit(&newGeneral)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if credit != 0 {
+		t.Errorf("令和8年入居の一般新築 = %d, want 0", credit.Yen())
+	}
+}
+
+// 実装済みテーブルの範囲 (令和8年末) を超える入居はエラー。
+func TestHousingLoanCreditMoveInAfterTableRange(t *testing.T) {
+	d := usedHouseDetail(t, model.HousingUsed, 10_000_000, 0)
+	d.DualApplicationGroup = ""
+	d.MoveInDate = mustDate(t, "2027-04-01")
+	if _, err := HousingLoanCredit(&d); err == nil {
+		t.Error("2027年入居はエラーになるべき (テーブル未実装)")
 	}
 }
 

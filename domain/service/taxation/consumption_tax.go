@@ -81,10 +81,9 @@ type ConsumptionTaxResult struct {
 // ConsumptionTaxService は消費税計算のドメインサービス。
 type ConsumptionTaxService struct{}
 
-// NewConsumptionTaxService は ConsumptionTaxService を生成する。
 func NewConsumptionTaxService() *ConsumptionTaxService { return &ConsumptionTaxService{} }
 
-// Calculate は消費税を計算する (令和7年分)。
+// Calculate は消費税を計算する (令和7年分・令和8年分)。
 func (s *ConsumptionTaxService) Calculate(in ConsumptionTaxInput) (*ConsumptionTaxResult, error) {
 	if err := s.validate(&in); err != nil {
 		return nil, err

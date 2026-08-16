@@ -90,10 +90,9 @@ type IncomeTaxResult struct {
 // IncomeTaxService は所得税計算のドメインサービス。
 type IncomeTaxService struct{}
 
-// NewIncomeTaxService は IncomeTaxService を生成する。
 func NewIncomeTaxService() *IncomeTaxService { return &IncomeTaxService{} }
 
-// Calculate は所得税を計算する (令和7年分)。
+// Calculate は所得税を計算する (令和7年分・令和8年分)。
 //
 // 手順:
 //  1. 給与所得 (所得金額調整控除を含む)・事業所得 (青色控除の利益上限調整)・
@@ -114,7 +113,7 @@ func (s *IncomeTaxService) Calculate(in IncomeTaxInput) (*IncomeTaxResult, error
 	var warnings []string
 
 	// Step 1: 各種所得
-	salaryIncome := SalaryIncome(in.SalaryRevenue)
+	salaryIncome := SalaryIncome(in.SalaryRevenue, in.FiscalYear)
 	if adj := SalaryIncomeAdjustment(in.SalaryRevenue, in.SelfDisability, in.Spouse, in.Dependents, in.FiscalYear); adj > 0 {
 		salaryIncome = (salaryIncome - adj).ClampNonNegative()
 		warnings = append(warnings, fmt.Sprintf("所得金額調整控除 %d円 を給与所得に適用しました", adj.Yen()))

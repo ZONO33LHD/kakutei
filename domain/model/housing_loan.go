@@ -16,7 +16,22 @@ const (
 	HousingRenovation     HousingKind = "renovation"      // 増改築 (リフォーム)
 )
 
-// Validate は定義済みの区分かを検証する。
+// UsesNewConstructionTable はこの取得区分・性能区分の組み合わせが
+// 「新築・買取再販」の限度額表を使うかを返す。
+//
+// 買取再販で新築の枠が使えるのは性能要件を満たす認定住宅等のみで、
+// 一般 (その他) の買取再販は既存住宅として扱う (租税特別措置法第41条)。
+// 増改築は限度額一律のためどちらの表も使わない。
+func (k HousingKind) UsesNewConstructionTable(category policy.HousingCategory) bool {
+	switch k {
+	case HousingNewCustom, HousingNewSubdivision:
+		return true
+	case HousingResale:
+		return category != policy.HousingGeneral
+	}
+	return false
+}
+
 func (k HousingKind) Validate() error {
 	switch k {
 	case HousingNewCustom, HousingNewSubdivision, HousingResale, HousingUsed, HousingRenovation:
@@ -35,17 +50,15 @@ type HousingLoanDetail struct {
 	FiscalYear           FiscalYear
 	Kind                 HousingKind
 	Category             policy.HousingCategory // 住宅性能区分
-	MoveInDate           Date                   // 入居日
-	YearEndBalance       Money                  // 年末残高
-	IsNewConstruction    bool                   // 新築かどうか (限度額テーブルの選択に使用)
-	IsChildcareHousehold bool                   // 子育て世帯・若者夫婦世帯 (R6-R7 の上限維持)
-	HasPreR6Permit       bool                   // R5以前の建築確認済み (一般住宅新築の特例)
-	AcquisitionCost      Money                  // 住宅取得対価等 (取得価格/増改築費用)。控除対象額の上限。0 = 未入力 (上限適用なし)
-	DualApplicationGroup string                 // 重複適用グループID。空 = 単独明細
-	CostForProration     Money                  // 按分用コスト (購入価格 or リフォーム費用)
+	MoveInDate           Date
+	YearEndBalance       Money
+	IsChildcareHousehold bool   // 子育て世帯・若者夫婦世帯 (借入限度額の上乗せ)
+	HasPreR6Permit       bool   // R5以前の建築確認済み (一般住宅新築の特例)
+	AcquisitionCost      Money  // 住宅取得対価等 (取得価格/増改築費用)。控除対象額の上限。0 = 未入力 (上限適用なし)
+	DualApplicationGroup string // 重複適用グループID。空 = 単独明細
+	CostForProration     Money  // 按分用コスト (購入価格 or リフォーム費用)
 }
 
-// Validate は住宅ローン控除明細の自己検証を行う。
 func (h *HousingLoanDetail) Validate() error {
 	if err := h.Kind.Validate(); err != nil {
 		return err

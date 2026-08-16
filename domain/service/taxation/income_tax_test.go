@@ -411,6 +411,88 @@ func TestIncomeTaxDividendCredit(t *testing.T) {
 	}
 }
 
+// 令和8年分 (2026) も同一の税制定数で計算できる (来年の申告用)。
+func TestIncomeTaxFiscalYear2026(t *testing.T) {
+	r := calcIncomeTax(t, IncomeTaxInput{
+		FiscalYear:          2026,
+		BusinessRevenue:     5_000_000,
+		BlueReturnDeduction: 650_000,
+		SocialInsurance:     500_000,
+	})
+	// 令和8年分の基礎控除は 104万 (本則62万+加算42万、所得489万以下)。
+	// taxable = 4,350,000 − (1,040,000+500,000) = 2,810,000
+	// 税額 = 281万×10% − 97,500 = 183,500 → 復興税込 187,353 → 187,300
+	if r.TaxableIncome != 2_810_000 || r.TaxDue != 187_300 {
+		t.Errorf("2026年分: taxable=%d taxDue=%d", r.TaxableIncome.Yen(), r.TaxDue.Yen())
+	}
+	// 年齢判定の基準日も年度に追随する: 2010-01-02生まれは2026年末時点で16歳 → 扶養控除対象
+	dep := model.Dependent{Name: "子", BirthDate: mustDate(t, "2010-01-02")}
+	withDep := calcIncomeTax(t, IncomeTaxInput{
+		FiscalYear:      2026,
+		BusinessRevenue: 5_000_000,
+		Dependents:      []model.Dependent{dep},
+	})
+	found := false
+	for _, item := range withDep.Deductions.IncomeDeductions {
+		if item.Type == DeductionDependent {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("2026年末で16歳の扶養親族に扶養控除が付くべき")
+	}
+}
+
+// 生保の子育て世帯特例は扶養控除と異なり夫婦双方で適用できるため、
+// 他方の納税者の扶養に入っている子 (OtherTaxpayerDependent) でも判定対象。
+func TestLifeInsuranceChildcareWithOtherTaxpayerDependent(t *testing.T) {
+	r := calcIncomeTax(t, IncomeTaxInput{
+		FiscalYear:      2026,
+		BusinessRevenue: 5_000_000,
+		Dependents: []model.Dependent{
+			{Name: "子", BirthDate: mustDate(t, "2015-04-01"), OtherTaxpayerDependent: true},
+		},
+		LifeInsurance: model.LifeInsurancePremiums{GeneralNew: 130_000},
+	})
+	found := false
+	for _, item := range r.Deductions.IncomeDeductions {
+		if item.Type != DeductionLifeInsurance {
+			continue
+		}
+		found = true
+		if item.Amount != 60_000 {
+			t.Errorf("生命保険料控除 = %d, want 60000 (子育て特例)", item.Amount.Yen())
+		}
+	}
+	if !found {
+		t.Error("生命保険料控除の項目が見つからない")
+	}
+}
+
+// 令和8年分の扶養親族の所得要件は 62万以下 (令和7年分は 58万以下)。
+func TestDependentIncomeRequirement2026(t *testing.T) {
+	dep := model.Dependent{Name: "子", BirthDate: mustDate(t, "2008-06-01"), Income: 600_000}
+	hasDependent := func(year model.FiscalYear) bool {
+		r := calcIncomeTax(t, IncomeTaxInput{
+			FiscalYear:      year,
+			BusinessRevenue: 5_000_000,
+			Dependents:      []model.Dependent{dep},
+		})
+		for _, item := range r.Deductions.IncomeDeductions {
+			if item.Type == DeductionDependent {
+				return true
+			}
+		}
+		return false
+	}
+	if hasDependent(2025) {
+		t.Error("令和7年分: 所得60万の扶養親族は対象外 (要件58万以下)")
+	}
+	if !hasDependent(2026) {
+		t.Error("令和8年分: 所得60万の扶養親族は対象 (要件62万以下)")
+	}
+}
+
 // 入力バリデーション。
 func TestIncomeTaxInputValidation(t *testing.T) {
 	svc := NewIncomeTaxService()

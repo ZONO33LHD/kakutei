@@ -28,8 +28,30 @@ func TestBasicDeduction(t *testing.T) {
 		{25_000_001, 0},
 	}
 	for _, tt := range tests {
-		if got := BasicDeduction(tt.income); got != tt.want {
+		if got := BasicDeduction(tt.income, 2025); got != tt.want {
 			t.Errorf("BasicDeduction(%d) = %d, want %d", tt.income.Yen(), got.Yen(), tt.want.Yen())
+		}
+	}
+}
+
+// 令和8年分の基礎控除 (本則62万+加算特例)。
+func TestBasicDeduction2026(t *testing.T) {
+	tests := []struct {
+		income model.Money
+		want   model.Money
+	}{
+		{1_000_000, 1_040_000},
+		{4_890_000, 1_040_000},
+		{4_890_001, 670_000},
+		{6_550_000, 670_000},
+		{6_550_001, 620_000},
+		{23_500_000, 620_000},
+		{23_500_001, 480_000}, // 2,350万超の区分は改正なし
+		{25_000_001, 0},
+	}
+	for _, tt := range tests {
+		if got := BasicDeduction(tt.income, 2026); got != tt.want {
+			t.Errorf("BasicDeduction2026(%d) = %d, want %d", tt.income.Yen(), got.Yen(), tt.want.Yen())
 		}
 	}
 }
@@ -56,7 +78,36 @@ func TestLifeInsuranceDeduction(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := LifeInsuranceDeduction(tt.p); got != tt.want {
+			if got := LifeInsuranceDeduction(tt.p, 2025, false); got != tt.want {
+				t.Errorf("= %d, want %d", got.Yen(), tt.want.Yen())
+			}
+		})
+	}
+}
+
+// 令和8年分限定・子育て世帯特例: 23歳未満の扶養親族ありで一般 (新) の上限が6万に拡充。
+func TestLifeInsuranceDeductionChildcare2026(t *testing.T) {
+	tests := []struct {
+		name  string
+		p     model.LifeInsurancePremiums
+		year  model.FiscalYear
+		young bool
+		want  model.Money
+	}{
+		{"特例: 12万超は上限6万", model.LifeInsurancePremiums{GeneralNew: 130_000}, 2026, true, 60_000},
+		{"特例: 3万以下は全額", model.LifeInsurancePremiums{GeneralNew: 28_000}, 2026, true, 28_000},
+		{"特例: 3万超6万以下は/2+1.5万", model.LifeInsurancePremiums{GeneralNew: 50_000}, 2026, true, 40_000},
+		{"特例: 6万超12万以下は/4+3万", model.LifeInsurancePremiums{GeneralNew: 100_000}, 2026, true, 55_000},
+		{"特例: 新旧併用の一般枠上限も6万", model.LifeInsurancePremiums{GeneralNew: 80_000, GeneralOld: 100_000}, 2026, true, 60_000},
+		{"特例: 合計12万上限は不変", model.LifeInsurancePremiums{
+			GeneralNew: 130_000, MedicalCare: 100_000, AnnuityNew: 100_000,
+		}, 2026, true, 120_000},
+		{"扶養親族なしは通常上限4万", model.LifeInsurancePremiums{GeneralNew: 130_000}, 2026, false, 40_000},
+		{"令和7年分は特例なし", model.LifeInsurancePremiums{GeneralNew: 130_000}, 2025, true, 40_000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := LifeInsuranceDeduction(tt.p, tt.year, tt.young); got != tt.want {
 				t.Errorf("= %d, want %d", got.Yen(), tt.want.Yen())
 			}
 		})
@@ -245,19 +296,26 @@ func TestDependentDeductions(t *testing.T) {
 }
 
 func TestWidowAndStudentDeductions(t *testing.T) {
-	if got := WidowDeduction(model.WidowSingleParent, 4_000_000); got != 350_000 {
+	if got := WidowDeduction(model.WidowSingleParent, 4_000_000, 2025); got != 350_000 {
 		t.Errorf("ひとり親 = %d", got.Yen())
 	}
-	if got := WidowDeduction(model.WidowWidow, 4_000_000); got != 270_000 {
+	if got := WidowDeduction(model.WidowWidow, 4_000_000, 2025); got != 270_000 {
 		t.Errorf("寡婦 = %d", got.Yen())
 	}
-	if got := WidowDeduction(model.WidowSingleParent, 5_000_001); got != 0 {
+	if got := WidowDeduction(model.WidowSingleParent, 5_000_001, 2025); got != 0 {
 		t.Errorf("所得500万超 = %d", got.Yen())
 	}
-	if got := WorkingStudentDeduction(true, 850_000); got != 270_000 {
+	if got := WorkingStudentDeduction(true, 850_000, 2025); got != 270_000 {
 		t.Errorf("勤労学生 = %d", got.Yen())
 	}
-	if got := WorkingStudentDeduction(true, 850_001); got != 0 {
+	if got := WorkingStudentDeduction(true, 850_001, 2025); got != 0 {
+		t.Errorf("= %d, want 0", got.Yen())
+	}
+	// 令和8年分は所得要件 89万以下
+	if got := WorkingStudentDeduction(true, 890_000, 2026); got != 270_000 {
+		t.Errorf("2026年89万 = %d, want 270000", got.Yen())
+	}
+	if got := WorkingStudentDeduction(true, 890_001, 2026); got != 0 {
 		t.Errorf("所得85万超 = %d", got.Yen())
 	}
 	if got := SelfDisabilityDeduction(model.DisabilityGeneral); got != 270_000 {

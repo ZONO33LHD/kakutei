@@ -25,23 +25,42 @@ func mulDivBig(a, b, c model.Money) model.Money {
 // 入居年・住宅性能区分・新築/中古・世帯区分でテーブルを選択する。
 // テーブルに定義のない組み合わせはエラー (暗黙のフォールバックはしない)。
 func housingLoanBalanceLimit(d *model.HousingLoanDetail) (model.Money, error) {
-	key := policy.HousingCategoryKey{Category: d.Category, NewConstruction: d.IsNewConstruction}
+	// 法定済みテーブルの範囲 (令和12年末入居まで) を超える入居は誤適用を防いで拒否する
+	if d.MoveInDate.Year() > policy.HousingLoanTableLastYear {
+		return 0, apperrors.Newf(apperrors.CodeBadRequest,
+			"入居年 %d の住宅ローン控除限度額は未対応です (対応: %d年末入居まで)",
+			d.MoveInDate.Year(), policy.HousingLoanTableLastYear)
+	}
+	moveInYear := d.MoveInDate.Year()
+	// 増改築等は性能区分・入居年によらず一律の上限 (控除期間10年)
+	if d.Kind == model.HousingRenovation {
+		return policy.HousingLoanRenovationLimit, nil
+	}
+	// 表の選択区分 (新築・買取再販 / 既存) は入力フラグでなく取得区分から導出する
+	newOrResale := d.Kind.UsesNewConstructionTable(d.Category)
+
+	key := policy.HousingCategoryKey{Category: d.Category, NewConstruction: newOrResale}
 	var limits map[policy.HousingCategoryKey]int64
 	switch {
-	case d.MoveInDate.Year() <= policy.HousingLoanR4R5LastYear:
+	case moveInYear <= policy.HousingLoanR4R5LastYear:
 		limits = policy.HousingLoanLimitsR4R5
-	case d.IsChildcareHousehold:
+	case moveInYear <= policy.HousingLoanR6R7LastYear && d.IsChildcareHousehold:
 		limits = policy.HousingLoanLimitsR6R7Childcare
-	default:
+	case moveInYear <= policy.HousingLoanR6R7LastYear:
 		limits = policy.HousingLoanLimitsR6R7
+	case d.IsChildcareHousehold:
+		limits = policy.HousingLoanLimitsR8Childcare
+	default:
+		limits = policy.HousingLoanLimitsR8
 	}
 	limit, ok := limits[key]
 	if !ok {
 		return 0, apperrors.Newf(apperrors.CodeBadRequest,
-			"住宅ローン控除の限度額が未定義の組み合わせです: %s/新築=%t", d.Category, d.IsNewConstruction)
+			"住宅ローン控除の限度額が未定義の組み合わせです: %s/%s", d.Category, d.Kind)
 	}
-	// 一般住宅新築 R6-R7: R5以前確認済みなら特例上限 (2,000万・控除期間10年)
-	if limit == 0 && d.Category == policy.HousingGeneral && d.IsNewConstruction && d.HasPreR6Permit {
+	// 一般住宅の新築等の R5 以前建築確認済み特例 (令和6〜7年入居のみの措置)
+	if limit == 0 && moveInYear <= policy.HousingLoanR6R7LastYear &&
+		d.Category == policy.HousingGeneral && newOrResale && d.HasPreR6Permit {
 		limit = policy.HousingLoanGeneralR5Confirmed
 	}
 	return model.Money(limit), nil
