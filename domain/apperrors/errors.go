@@ -17,10 +17,11 @@ type Code string
 func (c Code) ErrorCode() string { return string(c) }
 
 const (
-	CodeBadRequest Code = "BAD_REQUEST" // 入力不正
-	CodeNotFound   Code = "NOT_FOUND"   // 対象が存在しない
-	CodeConflict   Code = "CONFLICT"    // 重複・整合性違反
-	CodeInternal   Code = "INTERNAL"    // サーバー内部エラー
+	CodeBadRequest      Code = "BAD_REQUEST"       // 入力不正
+	CodeNotFound        Code = "NOT_FOUND"         // 対象が存在しない
+	CodeConflict        Code = "CONFLICT"          // 重複・整合性違反
+	CodePayloadTooLarge Code = "PAYLOAD_TOO_LARGE" // リクエスト body が大きすぎる
+	CodeInternal        Code = "INTERNAL"          // サーバー内部エラー
 )
 
 var _ failure.Code = Code("")
