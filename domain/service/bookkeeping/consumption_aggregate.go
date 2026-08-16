@@ -63,7 +63,6 @@ func (s *StatementService) AggregateConsumption(
 	return agg, nil
 }
 
-// affectsAggregate は補完された税区分が集計結果に影響するかどうか。
 func affectsAggregate(account *model.Account, category model.LineTaxCategory) bool {
 	switch account.Category {
 	case model.CategoryRevenue:
@@ -76,7 +75,6 @@ func affectsAggregate(account *model.Account, category model.LineTaxCategory) bo
 	}
 }
 
-// addToAggregate は明細1行を集計へ反映する。
 func addToAggregate(
 	agg *ConsumptionAggregate, account *model.Account,
 	line *model.JournalLine, category model.LineTaxCategory,
@@ -124,7 +122,6 @@ func addToAggregate(
 	}
 }
 
-// clampAggregate は相殺で負になった集計値を 0 に丸め、フラグを立てる。
 func clampAggregate(agg *ConsumptionAggregate) {
 	for _, p := range []*model.Money{
 		&agg.TaxableSales10, &agg.TaxableSales8,

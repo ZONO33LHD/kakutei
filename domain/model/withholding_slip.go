@@ -10,24 +10,23 @@ type WithholdingSlip struct {
 	PayerName  string // 支払者名。空 = 未設定
 
 	PaymentAmount   Money // 支払金額 (給与収入)
-	WithheldTax     Money // 源泉徴収税額
-	SocialInsurance Money // 社会保険料等の金額
+	WithheldTax     Money
+	SocialInsurance Money
 
 	// 保険料控除の内訳 (年末調整済みの場合に転記)
-	LifeInsuranceGeneralNew  Money // 新生命保険料
-	LifeInsuranceGeneralOld  Money // 旧生命保険料
-	LifeInsuranceMedicalCare Money // 介護医療保険料
-	LifeInsuranceAnnuityNew  Money // 新個人年金保険料
-	LifeInsuranceAnnuityOld  Money // 旧個人年金保険料
-	EarthquakeInsurance      Money // 地震保険料
-	OldLongTermInsurance     Money // 旧長期損害保険料
-	NationalPensionPremium   Money // 国民年金保険料等
+	LifeInsuranceGeneralNew  Money
+	LifeInsuranceGeneralOld  Money
+	LifeInsuranceMedicalCare Money
+	LifeInsuranceAnnuityNew  Money
+	LifeInsuranceAnnuityOld  Money
+	EarthquakeInsurance      Money
+	OldLongTermInsurance     Money
+	NationalPensionPremium   Money
 
 	HousingLoanDeduction Money  // 住宅借入金等特別控除の額 (年末調整分)
 	SourceFile           string // 読み取り元ファイル。空 = 未設定
 }
 
-// Validate は源泉徴収票の自己検証を行う。
 func (w *WithholdingSlip) Validate() error {
 	if err := w.FiscalYear.Validate(); err != nil {
 		return err

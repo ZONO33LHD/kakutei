@@ -11,11 +11,10 @@ import (
 type AuditOperation string
 
 const (
-	AuditUpdate AuditOperation = "update" // 訂正
-	AuditDelete AuditOperation = "delete" // 削除
+	AuditUpdate AuditOperation = "update"
+	AuditDelete AuditOperation = "delete"
 )
 
-// Validate は定義済みの操作種別かを検証する。
 func (o AuditOperation) Validate() error {
 	if o == AuditUpdate || o == AuditDelete {
 		return nil
@@ -33,12 +32,11 @@ type JournalAuditLog struct {
 	JournalID      int64
 	FiscalYear     FiscalYear
 	Operation      AuditOperation
-	BeforeSnapshot string // 変更前の仕訳 (JSON)
-	AfterSnapshot  string // 変更後の仕訳 (JSON)。削除時は空
+	BeforeSnapshot string
+	AfterSnapshot  string
 	CreatedAt      time.Time
 }
 
-// Validate は監査ログの自己検証を行う。
 func (l *JournalAuditLog) Validate() error {
 	if l.JournalID <= 0 {
 		return apperrors.New(apperrors.CodeBadRequest, "監査ログの仕訳IDが不正です")

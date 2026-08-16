@@ -6,11 +6,10 @@ import "github.com/ZONO33LHD/kakutei/domain/apperrors"
 type DepreciationMethod string
 
 const (
-	DepreciationStraightLine     DepreciationMethod = "straight_line"     // 定額法
-	DepreciationDecliningBalance DepreciationMethod = "declining_balance" // 定率法
+	DepreciationStraightLine     DepreciationMethod = "straight_line"
+	DepreciationDecliningBalance DepreciationMethod = "declining_balance"
 )
 
-// Validate は定義済みの方法かを検証する。
 func (m DepreciationMethod) Validate() error {
 	if m == DepreciationStraightLine || m == DepreciationDecliningBalance {
 		return nil
@@ -25,15 +24,14 @@ type FixedAsset struct {
 	Name                    string
 	AcquisitionDate         Date
 	AcquisitionCost         Money
-	UsefulLife              int                // 耐用年数
-	Method                  DepreciationMethod // 償却方法
-	DecliningRatePerMille   int                // 定率法の償却率 (千分率)。定額法では0
-	BusinessUseRatioPct     int                // 事業専用割合 (1〜100)
-	AccumulatedDepreciation Money              // 期首時点の償却累計額
+	UsefulLife              int
+	Method                  DepreciationMethod
+	DecliningRatePerMille   int   // 定率法の償却率 (千分率)。定額法では0
+	BusinessUseRatioPct     int   // 事業専用割合 (1〜100)
+	AccumulatedDepreciation Money // 期首時点の償却累計額
 	Memo                    string
 }
 
-// Validate は固定資産の自己検証を行う。
 func (a *FixedAsset) Validate() error {
 	if err := a.FiscalYear.Validate(); err != nil {
 		return err

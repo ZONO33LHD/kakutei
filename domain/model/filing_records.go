@@ -7,14 +7,13 @@ type MedicalExpense struct {
 	ID                     int64
 	FiscalYear             FiscalYear
 	Date                   Date
-	PatientName            string // 受診者
+	PatientName            string
 	MedicalInstitution     string // 医療機関・薬局名
 	Amount                 Money  // 支払医療費
-	InsuranceReimbursement Money  // 保険等で補填される金額
+	InsuranceReimbursement Money
 	Description            string // 空 = 未設定
 }
 
-// Validate は医療費明細の自己検証を行う。
 func (m *MedicalExpense) Validate() error {
 	if err := m.FiscalYear.Validate(); err != nil {
 		return err
@@ -38,7 +37,6 @@ func (m *MedicalExpense) Validate() error {
 	return nil
 }
 
-// NetAmount は補填控除後の医療費を返す。
 func (m *MedicalExpense) NetAmount() Money {
 	return m.Amount - m.InsuranceReimbursement
 }
@@ -47,15 +45,14 @@ func (m *MedicalExpense) NetAmount() Money {
 type SocialInsuranceKind string
 
 const (
-	SocialInsuranceNationalHealth      SocialInsuranceKind = "national_health"       // 国民健康保険
-	SocialInsuranceNationalPension     SocialInsuranceKind = "national_pension"      // 国民年金
-	SocialInsuranceNationalPensionFund SocialInsuranceKind = "national_pension_fund" // 国民年金基金
-	SocialInsuranceNursingCare         SocialInsuranceKind = "nursing_care"          // 介護保険
-	SocialInsuranceLabor               SocialInsuranceKind = "labor_insurance"       // 労働保険
-	SocialInsuranceOther               SocialInsuranceKind = "other"                 // その他
+	SocialInsuranceNationalHealth      SocialInsuranceKind = "national_health"
+	SocialInsuranceNationalPension     SocialInsuranceKind = "national_pension"
+	SocialInsuranceNationalPensionFund SocialInsuranceKind = "national_pension_fund"
+	SocialInsuranceNursingCare         SocialInsuranceKind = "nursing_care"
+	SocialInsuranceLabor               SocialInsuranceKind = "labor_insurance"
+	SocialInsuranceOther               SocialInsuranceKind = "other"
 )
 
-// Validate は定義済みの種別かを検証する。
 func (k SocialInsuranceKind) Validate() error {
 	switch k {
 	case SocialInsuranceNationalHealth, SocialInsuranceNationalPension,
@@ -75,7 +72,6 @@ type SocialInsuranceItem struct {
 	Amount     Money
 }
 
-// Validate は社会保険料内訳の自己検証を行う。
 func (s *SocialInsuranceItem) Validate() error {
 	if err := s.FiscalYear.Validate(); err != nil {
 		return err
@@ -93,16 +89,15 @@ func (s *SocialInsuranceItem) Validate() error {
 type InsurancePolicyKind string
 
 const (
-	PolicyLifeGeneralNew  InsurancePolicyKind = "life_general_new"  // 一般生命保険 (新制度)
-	PolicyLifeGeneralOld  InsurancePolicyKind = "life_general_old"  // 一般生命保険 (旧制度)
-	PolicyLifeMedicalCare InsurancePolicyKind = "life_medical_care" // 介護医療保険
-	PolicyLifeAnnuityNew  InsurancePolicyKind = "life_annuity_new"  // 個人年金 (新制度)
-	PolicyLifeAnnuityOld  InsurancePolicyKind = "life_annuity_old"  // 個人年金 (旧制度)
-	PolicyEarthquake      InsurancePolicyKind = "earthquake"        // 地震保険
-	PolicyOldLongTerm     InsurancePolicyKind = "old_long_term"     // 旧長期損害保険
+	PolicyLifeGeneralNew  InsurancePolicyKind = "life_general_new"
+	PolicyLifeGeneralOld  InsurancePolicyKind = "life_general_old"
+	PolicyLifeMedicalCare InsurancePolicyKind = "life_medical_care"
+	PolicyLifeAnnuityNew  InsurancePolicyKind = "life_annuity_new"
+	PolicyLifeAnnuityOld  InsurancePolicyKind = "life_annuity_old"
+	PolicyEarthquake      InsurancePolicyKind = "earthquake"
+	PolicyOldLongTerm     InsurancePolicyKind = "old_long_term"
 )
 
-// Validate は定義済みの種別かを検証する。
 func (k InsurancePolicyKind) Validate() error {
 	switch k {
 	case PolicyLifeGeneralNew, PolicyLifeGeneralOld, PolicyLifeMedicalCare,
@@ -121,7 +116,6 @@ type InsurancePolicy struct {
 	Premium     Money // 年間支払保険料
 }
 
-// Validate は保険契約の自己検証を行う。
 func (p *InsurancePolicy) Validate() error {
 	if err := p.FiscalYear.Validate(); err != nil {
 		return err
@@ -143,11 +137,10 @@ type BusinessWithholding struct {
 	ID          int64
 	FiscalYear  FiscalYear
 	ClientName  string
-	GrossAmount Money // 支払金額
-	WithheldTax Money // 源泉徴収税額
+	GrossAmount Money
+	WithheldTax Money
 }
 
-// Validate は事業源泉徴収の自己検証を行う。
 func (b *BusinessWithholding) Validate() error {
 	if err := b.FiscalYear.Validate(); err != nil {
 		return err
@@ -176,7 +169,6 @@ type LossCarryforward struct {
 // maxLossCarryforwardYears は純損失の繰越可能年数 (所得税法第70条)。
 const maxLossCarryforwardYears = 3
 
-// Validate は繰越損失の自己検証を行う。
 func (l *LossCarryforward) Validate() error {
 	if err := l.FiscalYear.Validate(); err != nil {
 		return err
@@ -200,7 +192,6 @@ func (l *LossCarryforward) Validate() error {
 	return nil
 }
 
-// Remaining は未充当の繰越損失額を返す。
 func (l *LossCarryforward) Remaining() Money {
 	return l.Amount - l.UsedAmount
 }
@@ -214,7 +205,6 @@ const (
 	OtherIncomeOneTime       OtherIncomeKind = "one_time"               // 一時所得
 )
 
-// Validate は定義済みの種別かを検証する。
 func (k OtherIncomeKind) Validate() error {
 	switch k {
 	case OtherIncomeMiscellaneous, OtherIncomeDividend, OtherIncomeOneTime:
@@ -229,13 +219,12 @@ type OtherIncome struct {
 	FiscalYear  FiscalYear
 	Kind        OtherIncomeKind
 	Description string
-	Revenue     Money // 収入金額
+	Revenue     Money
 	Expenses    Money // 必要経費 (収入を得るための支出)
-	WithheldTax Money // 源泉徴収税額
+	WithheldTax Money
 	PayerName   string
 }
 
-// Validate はその他所得の自己検証を行う。
 func (o *OtherIncome) Validate() error {
 	if err := o.FiscalYear.Validate(); err != nil {
 		return err

@@ -15,7 +15,6 @@ const (
 	MatchSimilar DuplicateMatchKind = "similar" // 同一日付・同一金額 → 警告のみ
 )
 
-// 重複スコア。
 const (
 	scoreExact          = 100 // ハッシュ完全一致
 	scoreSameDateAmount = 90  // 同日・同額かつ科目が部分一致
@@ -33,7 +32,6 @@ type DuplicateWarning struct {
 // DuplicateService は仕訳の重複検出を行うドメインサービス。
 type DuplicateService struct{}
 
-// NewDuplicateService は DuplicateService を生成する。
 func NewDuplicateService() *DuplicateService { return &DuplicateService{} }
 
 // CheckOnInsert は登録候補の仕訳を既存仕訳 (同一年度) と照合する。

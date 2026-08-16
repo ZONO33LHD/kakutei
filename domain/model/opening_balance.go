@@ -11,7 +11,6 @@ type OpeningBalance struct {
 	Amount      Money
 }
 
-// Validate は期首残高の自己検証を行う。
 func (o *OpeningBalance) Validate() error {
 	if err := o.FiscalYear.Validate(); err != nil {
 		return err

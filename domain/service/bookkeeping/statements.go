@@ -15,7 +15,6 @@ import (
 // StatementService は財務諸表の組み立てを行うドメインサービス。
 type StatementService struct{}
 
-// NewStatementService は StatementService を生成する。
 func NewStatementService() *StatementService { return &StatementService{} }
 
 // AccountBalance は残高試算表の1行。
@@ -35,10 +34,8 @@ type TrialBalance struct {
 	TotalCredit model.Money // 当期貸方合計
 }
 
-// Balanced は当期仕訳の貸借が一致しているかどうか。
 func (t *TrialBalance) Balanced() bool { return t.TotalDebit == t.TotalCredit }
 
-// accountIndex は科目コード → 科目のルックアップを作る。
 func accountIndex(accounts []model.Account) map[model.AccountCode]model.Account {
 	idx := make(map[model.AccountCode]model.Account, len(accounts))
 	for _, a := range accounts {
@@ -47,7 +44,6 @@ func accountIndex(accounts []model.Account) map[model.AccountCode]model.Account 
 	return idx
 }
 
-// validateInputs は集計入力の年度整合と科目の存在を検証する。
 func validateInputs(
 	year model.FiscalYear, idx map[model.AccountCode]model.Account,
 	entries []model.JournalEntry, openings []model.OpeningBalance,
@@ -219,12 +215,10 @@ type BalanceSheet struct {
 	OpeningTotalEquity      model.Money
 }
 
-// Balanced は資産 = 負債 + 純資産 が成立しているかどうか。
 func (b *BalanceSheet) Balanced() bool {
 	return b.TotalAssets == b.TotalLiabilities+b.TotalEquity
 }
 
-// BuildBalanceSheet は仕訳と期首残高から貸借対照表を組み立てる。
 func (s *StatementService) BuildBalanceSheet(
 	year model.FiscalYear, accounts []model.Account,
 	entries []model.JournalEntry, openings []model.OpeningBalance,
@@ -260,7 +254,6 @@ func (s *StatementService) BuildBalanceSheet(
 	return bs, nil
 }
 
-// appendBSLine は貸借対照表の期首・期末行を追加する。
 func appendBSLine(bs *BalanceSheet, ab *AccountBalance) {
 	opening := ab.OpeningBalance
 	closing := ab.ClosingBalance

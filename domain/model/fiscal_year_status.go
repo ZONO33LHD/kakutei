@@ -14,7 +14,6 @@ const (
 	FiscalYearClosed FiscalYearState = "closed" // 締め済み (仕訳の追加・訂正不可)
 )
 
-// Validate は定義済みの状態かを検証する。
 func (s FiscalYearState) Validate() error {
 	if s == FiscalYearOpen || s == FiscalYearClosed {
 		return nil
@@ -29,7 +28,6 @@ type FiscalYearStatus struct {
 	CreatedAt time.Time
 }
 
-// Validate は年度管理レコードの自己検証を行う。
 func (f *FiscalYearStatus) Validate() error {
 	if err := f.Year.Validate(); err != nil {
 		return err
