@@ -1,16 +1,20 @@
-// Package apperrors はアプリケーション全体で使うエラー型を提供する。
+// Package apperrors はエラーコードの定義と morikuni/failure の薄いラッパーを提供する。
 //
-// ドメイン層・ユースケース層はこのパッケージのエラーコードで失敗理由を表現し、
-// interface 層 (REST) が HTTP ステータスへ変換する。
+// エラーは全て failure ベースで生成され、コード・メッセージ・コールスタックを保持する。
+// ドメイン層・ユースケース層はエラーコードで失敗理由を表現し、
+// interface 層 (REST) が CodeOf で取り出して HTTP ステータスへ変換する。
+// failure.Is / failure.CodeOf 等の API もそのまま利用できる。
 package apperrors
 
 import (
-	"errors"
-	"fmt"
+	"github.com/morikuni/failure"
 )
 
-// Code はエラー分類コード。
+// Code はエラー分類コード (failure.Code を実装し、文字列比較も可能な具象型)。
 type Code string
+
+// ErrorCode は failure.Code インターフェースの実装。
+func (c Code) ErrorCode() string { return string(c) }
 
 const (
 	CodeBadRequest Code = "BAD_REQUEST" // 入力不正
@@ -19,42 +23,45 @@ const (
 	CodeInternal   Code = "INTERNAL"    // サーバー内部エラー
 )
 
-// AppError はコード付きエラー。Err に原因を保持し errors.Is / As で辿れる。
-type AppError struct {
-	Code    Code
-	Message string
-	Err     error
+var _ failure.Code = Code("")
+
+// New はコード付きエラーを生成する。
+func New(code Code, message string) error {
+	return failure.New(code, failure.Message(message))
 }
 
-func (e *AppError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.Err)
-	}
-	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+// Newf はフォーマット付きでコード付きエラーを生成する。
+func Newf(code Code, format string, args ...any) error {
+	return failure.New(code, failure.Messagef(format, args...))
 }
 
-func (e *AppError) Unwrap() error { return e.Err }
-
-// New はコードとメッセージから AppError を作る。
-func New(code Code, message string) *AppError {
-	return &AppError{Code: code, Message: message}
+// Wrap は原因エラーをコード付きでラップする (コードの付け替え/付与)。
+func Wrap(err error, code Code, message string) error {
+	return failure.Translate(err, code, failure.Message(message))
 }
 
-// Newf はフォーマット付きで AppError を作る。
-func Newf(code Code, format string, args ...any) *AppError {
-	return &AppError{Code: code, Message: fmt.Sprintf(format, args...)}
+// Wrapf は原因エラーのコードを保ったまま文脈メッセージを追加してラップする。
+func Wrapf(err error, format string, args ...any) error {
+	return failure.Wrap(err, failure.Messagef(format, args...))
 }
 
-// Wrap は原因エラーを保持した AppError を作る。
-func Wrap(err error, code Code, message string) *AppError {
-	return &AppError{Code: code, Message: message, Err: err}
-}
-
-// CodeOf はエラーから Code を取り出す。AppError でなければ CodeInternal。
+// CodeOf はエラーからコードを取り出す。コード無しエラーは CodeInternal 扱い。
 func CodeOf(err error) Code {
-	var ae *AppError
-	if errors.As(err, &ae) {
-		return ae.Code
+	code, ok := failure.CodeOf(err)
+	if !ok {
+		return CodeInternal
 	}
-	return CodeInternal
+	if c, ok := code.(Code); ok {
+		return c
+	}
+	return Code(code.ErrorCode())
+}
+
+// MessageOf はエラーから利用者向けメッセージを取り出す。
+// メッセージ無し (想定外のエラー) の場合は空文字を返す。
+func MessageOf(err error) string {
+	if msg, ok := failure.MessageOf(err); ok {
+		return msg
+	}
+	return ""
 }

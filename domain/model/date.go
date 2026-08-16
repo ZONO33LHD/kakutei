@@ -35,16 +35,12 @@ func ParseDate(s string) (Date, error) {
 	return Date{year: t.Year(), month: t.Month(), day: t.Day()}, nil
 }
 
-// Year は年を返す。
 func (d Date) Year() int { return d.year }
 
-// Month は月を返す。
 func (d Date) Month() time.Month { return d.month }
 
-// Day は日を返す。
 func (d Date) Day() int { return d.day }
 
-// IsZero はゼロ値 (未設定) かどうか。
 func (d Date) IsZero() bool { return d == Date{} }
 
 // String は "YYYY-MM-DD" 形式で返す。ゼロ値は空文字列。
@@ -55,7 +51,6 @@ func (d Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.year, int(d.month), d.day)
 }
 
-// Before は d が other より前の日付かどうか。
 func (d Date) Before(other Date) bool {
 	if d.year != other.year {
 		return d.year < other.year
@@ -66,7 +61,6 @@ func (d Date) Before(other Date) bool {
 	return d.day < other.day
 }
 
-// After は d が other より後の日付かどうか。
 func (d Date) After(other Date) bool { return other.Before(d) }
 
 // AgeAt は d を生年月日として at 時点の満年齢 (誕生日当日に加齢する通俗的な数え方) を返す。

@@ -20,6 +20,13 @@ const (
 	ConsumptionStandardNationalRateDenom = 1000
 	ConsumptionReducedNationalRateNum    = 624 // 6.24% = 624/10000
 	ConsumptionReducedNationalRateDenom  = 10000
+
+	// 本則課税の仕入税額 (国税) = 税込仕入額 × 7.8/110 (標準) or 6.24/108 (軽減)
+	// (国税率を税込金額に直接適用する合成比率: 7.8%÷1.10 = 78/1100、6.24%÷1.08 = 624/10800)
+	ConsumptionStandardPurchaseRateNum   = 78
+	ConsumptionStandardPurchaseRateDenom = 1100
+	ConsumptionReducedPurchaseRateNum    = 624
+	ConsumptionReducedPurchaseRateDenom  = 10800
 )
 
 // SimplifiedBusinessType は簡易課税の事業区分 (1〜6)。
@@ -53,3 +60,11 @@ var SimplifiedDeemedRatios = map[SimplifiedBusinessType]int64{
 
 // Special20PctRatePct は 2 割特例の乗率 (インボイス経過措置、令和8年9月30日まで)。
 const Special20PctRatePct = 20
+
+// 本則課税の仕入税額控除の全額控除要件 (消費税法第30条第2項)。
+// 課税売上高 (税抜) 5億円以下かつ課税売上割合95%以上で全額控除。
+// 満たさない場合は按分が必要 (本実装は一括比例配分方式のみ対応)。
+const (
+	ConsumptionFullCreditSalesMax = 500_000_000 // 課税売上高5億円
+	ConsumptionFullCreditRatioPct = 95          // 課税売上割合95%
+)

@@ -15,15 +15,12 @@ type Money int64
 // オーバーフローしないことを保証する。
 const MaxAmount Money = 1_000_000_000_000
 
-// ValidateAmountRange は入力金額が [-MaxAmount, MaxAmount] に収まるかを検証する。
 func (m Money) ValidateAmountRange() bool {
 	return m >= -MaxAmount && m <= MaxAmount
 }
 
-// Yen は int64 の円額を返す。
 func (m Money) Yen() int64 { return int64(m) }
 
-// IsNegative は負の金額かどうか。
 func (m Money) IsNegative() bool { return m < 0 }
 
 // RoundDownTo は unit 円未満を切り捨てる (国税通則法118条・119条の端数処理)。
@@ -68,7 +65,6 @@ func (m Money) MulDiv(numerator, denominator int64) Money {
 	return Money(q)
 }
 
-// Min は 2 つの金額の小さい方を返す。
 func (m Money) Min(other Money) Money {
 	if m < other {
 		return m
@@ -76,7 +72,6 @@ func (m Money) Min(other Money) Money {
 	return other
 }
 
-// Max は 2 つの金額の大きい方を返す。
 func (m Money) Max(other Money) Money {
 	if m > other {
 		return m
@@ -84,7 +79,6 @@ func (m Money) Max(other Money) Money {
 	return other
 }
 
-// ClampNonNegative は負の場合に 0 へ切り上げる。
 func (m Money) ClampNonNegative() Money {
 	if m < 0 {
 		return 0

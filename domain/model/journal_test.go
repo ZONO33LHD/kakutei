@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -75,8 +74,7 @@ func TestJournalEntryValidateErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("エラーになるべき")
 			}
-			var ae *apperrors.AppError
-			if !errors.As(err, &ae) || ae.Code != apperrors.CodeBadRequest {
+			if apperrors.CodeOf(err) != apperrors.CodeBadRequest {
 				t.Errorf("CodeBadRequest であるべき: %v", err)
 			}
 		})
