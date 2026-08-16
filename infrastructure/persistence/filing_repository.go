@@ -17,6 +17,11 @@ import (
 // 申告資料 (源泉徴収票・扶養親族・寄附金等) は kind 別の JSON ドキュメントとして
 // filing_records テーブルに保持する。エンティティの検証は domain/model の
 // Validate が担い、リポジトリは年度スコープと ID 採番に責任を持つ。
+//
+// スキーマ進化の方針: JSON はドメイン構造体の直接シリアライズであるため、
+// フィールドの改名・型変更を行う場合は migrations (migrate.go) に既存 data を
+// 変換するマイグレーションを必ず追加する。追加フィールドはゼロ値で復元される
+// (後方互換)。ID と年度は列の値が正であり、読み取り時に JSON を上書きする。
 type filingRepo[T any] struct {
 	db      *sql.DB
 	kind    string // filing_records.kind の値

@@ -69,12 +69,14 @@ CREATE TABLE IF NOT EXISTS opening_balances (
 );
 
 -- 申告資料 (源泉徴収票・扶養親族・寄附金・医療費・保険・繰越損失・固定資産等)
--- kind ごとのドメインエンティティを JSON で保持する
+-- kind ごとのドメインエンティティを JSON で保持する。
+-- JSON の形式 (Go 構造体のフィールド) を変更する場合は、migrations に
+-- data を変換するマイグレーションを必ず追加する (旧形式の黙殺ゼロ値化を防ぐ)。
 CREATE TABLE IF NOT EXISTS filing_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fiscal_year INTEGER NOT NULL REFERENCES fiscal_years(year),
-    kind TEXT NOT NULL,
-    data TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind <> ''),
+    data TEXT NOT NULL CHECK (json_valid(data)),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

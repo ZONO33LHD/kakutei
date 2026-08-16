@@ -81,7 +81,9 @@ func (r *SpouseRepository) FindByFiscalYear(ctx context.Context, year model.Fisc
 	if err := json.Unmarshal([]byte(data), &spouse); err != nil {
 		return nil, wrapInternal(err, "配偶者情報の復元")
 	}
+	// ID と年度は列の値を正とする (汎用 filingRepo と同じ方針)
 	spouse.ID = id
+	spouse.FiscalYear = year
 	return &spouse, nil
 }
 

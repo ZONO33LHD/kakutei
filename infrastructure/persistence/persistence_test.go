@@ -509,6 +509,70 @@ func TestSpouseRepository(t *testing.T) {
 	if spouse != nil {
 		t.Error("削除されていない")
 	}
+
+	// 締め済み年度への操作は拒否
+	if err := repo.Upsert(ctx, &model.Spouse{
+		FiscalYear: 2025, Name: "花子", BirthDate: testDate(t, "1990-05-01"),
+	}); err != nil {
+		t.Fatalf("再登録: %v", err)
+	}
+	if err := NewFiscalYearRepository(sqlDB).UpdateState(ctx, 2025, model.FiscalYearClosed); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	assertCode(t, repo.Upsert(ctx, &model.Spouse{
+		FiscalYear: 2025, Name: "花子", BirthDate: testDate(t, "1990-05-01"),
+	}), apperrors.CodeConflict)
+	assertCode(t, repo.DeleteByFiscalYear(ctx, 2025), apperrors.CodeConflict)
+}
+
+// 更新途中の失敗 (FK違反) でヘッダ・明細・監査ログが全てロールバックされること。
+func TestJournalRepositoryUpdateRollback(t *testing.T) {
+	sqlDB := newTestDB(t)
+	ctx := context.Background()
+	repo := NewJournalRepository(sqlDB)
+
+	id, err := repo.Create(ctx, sampleEntry(t, "2025-04-01", "A", 10_000))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	stored, _ := repo.FindByID(ctx, id)
+
+	// 存在しない科目コードで更新 → journal_lines の FK 違反で失敗する
+	bad := *stored
+	bad.Lines = []model.JournalLine{
+		{Side: model.SideDebit, AccountCode: "8888", Amount: 10_000},
+		{Side: model.SideCredit, AccountCode: "4001", Amount: 10_000},
+	}
+	bad.Description = "壊れた更新"
+	if err := repo.Update(ctx, &bad); err == nil {
+		t.Fatal("FK違反の更新はエラーになるべき")
+	}
+
+	// ヘッダ・明細は元のまま、監査ログは記録されていない
+	after, err := repo.FindByID(ctx, id)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if after.Description != "テスト仕訳" || len(after.Lines) != 2 || after.Lines[0].AccountCode != "1002" {
+		t.Errorf("ロールバックされていない: %+v", after)
+	}
+	logs, _ := NewJournalAuditRepository(sqlDB).ListByJournalID(ctx, id)
+	if len(logs) != 0 {
+		t.Errorf("失敗した更新の監査ログが残っている: %d件", len(logs))
+	}
+}
+
+// マイグレーションの再実行は冪等で、user_version が管理される。
+func TestMigrateIdempotent(t *testing.T) {
+	sqlDB := newTestDB(t) // 1回目の Migrate 済み
+	ctx := context.Background()
+	if err := Migrate(ctx, sqlDB); err != nil {
+		t.Fatalf("Migrate (2回目): %v", err)
+	}
+	var version int
+	if err := sqlDB.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 1 {
+		t.Errorf("user_version = %d, err=%v (want 1)", version, err)
+	}
 }
 
 // 全 filing リポジトリの登録→取得ラウンドトリップ。
