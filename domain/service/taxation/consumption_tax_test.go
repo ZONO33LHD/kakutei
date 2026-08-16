@@ -186,6 +186,17 @@ func TestConsumptionProportionalCredit(t *testing.T) {
 		t.Errorf("95%%以上は全額控除: applied=%t purchases=%d",
 			full.ProportionalCreditApplied, full.TaxOnPurchases.Yen())
 	}
+
+	// 免税売上は課税売上割合の分子に含まれる (輸出企業が按分にならない)
+	exempt := calcConsumption(t, ConsumptionTaxInput{
+		FiscalYear: 2025, Method: MethodStandard,
+		TaxableSales10: 110_000, ExemptSales: 900_000,
+		TaxablePurchases10: 550_000, NonTaxableSales: 50_000,
+	})
+	// 分子 = 100,000 + 900,000 = 1,000,000 / 分母 = 1,050,000 → 95.2% ≥ 95%
+	if exempt.ProportionalCreditApplied {
+		t.Error("免税売上を含めた割合が95%以上なら全額控除")
+	}
 }
 
 // 中間納付の控除と混在売上。
