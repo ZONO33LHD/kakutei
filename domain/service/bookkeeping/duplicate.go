@@ -2,6 +2,7 @@ package bookkeeping
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/ZONO33LHD/kakutei/domain/model"
 )
@@ -130,6 +131,14 @@ func (s *DuplicateService) FindDuplicatePairs(
 			}
 		}
 	}
+	// map 走査による非決定性を排除し、結果を仕訳IDの昇順で安定させる
+	sort.Slice(result.Pairs, func(i, j int) bool {
+		a, b := result.Pairs[i], result.Pairs[j]
+		if a.JournalIDA != b.JournalIDA {
+			return a.JournalIDA < b.JournalIDA
+		}
+		return a.JournalIDB < b.JournalIDB
+	})
 	return result
 }
 
