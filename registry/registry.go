@@ -10,9 +10,10 @@ package registry
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net"
 	"net/http"
+
+	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 
 	"github.com/ZONO33LHD/kakutei/domain/service/bookkeeping"
 	"github.com/ZONO33LHD/kakutei/domain/service/taxation"
@@ -46,7 +47,7 @@ type Registry struct {
 func New(ctx context.Context, cfg Config) (reg *Registry, err error) {
 	sqlDB, err := db.Open(ctx, cfg.DBPath)
 	if err != nil {
-		return nil, fmt.Errorf("DB のオープンに失敗しました: %w", err)
+		return nil, apperrors.Wrapf(err, "DB のオープンに失敗しました")
 	}
 	// 後段の初期化が失敗した場合に確実に DB を閉じる。
 	defer func() {
@@ -56,7 +57,7 @@ func New(ctx context.Context, cfg Config) (reg *Registry, err error) {
 	}()
 
 	if err := persistence.Migrate(ctx, sqlDB); err != nil {
-		return nil, fmt.Errorf("マイグレーションに失敗しました: %w", err)
+		return nil, apperrors.Wrapf(err, "マイグレーションに失敗しました")
 	}
 
 	// repository (SQLite 実装)

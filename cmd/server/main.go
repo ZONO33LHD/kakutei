@@ -72,11 +72,22 @@ func run() error {
 
 	select {
 	case err := <-errCh:
+		stop() // 終了処理中のシグナルを既定動作 (即終了) に戻してから片付ける
 		return err
 	case <-ctx.Done():
+		// シグナル捕捉を解除し、2発目のシグナルでは即終了 (デフォルト動作) できるようにする
+		stop()
 		slog.Info("シャットダウンします")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			// 猶予内に完了しない等で Shutdown が失敗したら残存接続を強制切断する
+			// (直後に defer が DB を閉じるため、使用中の接続を残さない)
+			if cerr := server.Close(); cerr != nil {
+				slog.Error("残存接続の強制切断に失敗しました", "error", cerr)
+			}
+			return err
+		}
+		return nil
 	}
 }
