@@ -148,4 +148,59 @@ func TestErrAttr(t *testing.T) {
 	if origin, _ := group["origin"].(string); !strings.Contains(origin, "logger_test.go") {
 		t.Errorf("origin にエラー発生地点がない: %v", group["origin"])
 	}
+	trace, _ := group["trace"].(string)
+	if !strings.Contains(trace, "[CallStack]") || !strings.Contains(trace, "重複しています") {
+		t.Errorf("trace に完全なトレースがない: %v", trace)
+	}
+}
+
+// KAKUTEI_LOG_TRACE=off で trace 属性が出力されない。
+func TestErrAttrTraceDisabled(t *testing.T) {
+	t.Setenv("KAKUTEI_LOG_TRACE", "off")
+	var buf bytes.Buffer
+	logger := New(Config{Output: &buf})
+	logger.Error("失敗", Err(apperrors.New(apperrors.CodeConflict, "x")))
+
+	var rec map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	group, _ := rec["error"].(map[string]any)
+	if _, ok := group["trace"]; ok {
+		t.Error("off 設定時は trace が出力されないべき")
+	}
+	if group["code"] != "CONFLICT" || group["origin"] == nil {
+		t.Errorf("trace 以外の属性は維持されるべき: %v", group)
+	}
+}
+
+// ラップを重ねたエラーの trace には、各ラップ地点とメッセージが一連で含まれる。
+func TestErrAttrWrappedChain(t *testing.T) {
+	var buf bytes.Buffer
+	logger := New(Config{Output: &buf})
+	inner := apperrors.New(apperrors.CodeConflict, "既に登録されています")
+	outer := apperrors.Wrapf(inner, "2 件目")
+	logger.Error("失敗", Err(outer))
+
+	var rec map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &rec); err != nil {
+		t.Fatal(err)
+	}
+	group, _ := rec["error"].(map[string]any)
+	trace, _ := group["trace"].(string)
+	for _, want := range []string{
+		"2 件目",
+		"既に登録されています",
+		"code(CONFLICT)",
+		"[CallStack]",
+	} {
+		if !strings.Contains(trace, want) {
+			t.Errorf("trace に %q がない:\n%s", want, trace)
+		}
+	}
+	// 先頭行 (最も外側のラップ地点) は facade でなく呼び出し元 (このテスト) を指す
+	firstLine := strings.SplitN(trace, "\n", 2)[0]
+	if !strings.Contains(firstLine, "logger_test.go") || strings.Contains(firstLine, "errors.go") {
+		t.Errorf("trace の先頭行がラップ元を指していない: %q", firstLine)
+	}
 }

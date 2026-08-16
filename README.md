@@ -63,6 +63,7 @@ make lint           # gofmt チェック + go vet + golangci-lint
 | `KAKUTEI_ADDR` | `127.0.0.1:8080` | 待受アドレス |
 | `KAKUTEI_LOG_LEVEL` | `info` | ログレベル (`debug`/`info`/`warn`/`error`) |
 | `KAKUTEI_LOG_FORMAT` | `json` | ログ形式 (`json`/`text`) |
+| `KAKUTEI_LOG_TRACE` | `on` | エラーログの詳細トレース (`off` で無効化。トレースには絶対パス・原因メッセージが含まれる) |
 
 ## API 概要
 

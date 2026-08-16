@@ -6,6 +6,7 @@
 //	KAKUTEI_ADDR:       待受アドレス (既定: 127.0.0.1:8080)
 //	KAKUTEI_LOG_LEVEL:  ログレベル debug/info/warn/error (既定: info)
 //	KAKUTEI_LOG_FORMAT: ログ形式 json/text (既定: json)
+//	KAKUTEI_LOG_TRACE:  エラーログの詳細トレース (off で無効化、既定: 有効)
 package main
 
 import (

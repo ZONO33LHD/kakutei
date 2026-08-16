@@ -7,11 +7,13 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/morikuni/failure"
 
@@ -108,13 +110,42 @@ func (h *contextHandler) WithGroup(name string) slog.Handler {
 	return &contextHandler{inner: h.inner.WithGroup(name)}
 }
 
-// Err はエラーを構造化したログ属性にする。
+// traceMaxBytes は trace 属性の上限。異常に深いチェーンでもログ1件が肥大しないようにする。
+const traceMaxBytes = 8 * 1024
+
+// traceEnabled は KAKUTEI_LOG_TRACE=off でトレース出力を無効化できる
+// (trace には絶対パス・原因エラーの全メッセージが含まれるため、外部へログを
+// 転送する運用では無効化を検討する)。キャッシュしないのはテスト容易性のため
+// (エラーログ経路のみで呼ばれるため頻度も低い)。
+func traceEnabled() bool {
+	return !strings.EqualFold(os.Getenv("KAKUTEI_LOG_TRACE"), "off")
+}
+
+// Err はエラーを構造化したログ属性にする。1レコードで原因の特定に必要な情報が揃う:
 // message は全文 (原因チェーン込み)、code は apperrors のコード、
-// origin は failure が捕捉したエラー発生地点 (最初のフレーム)。
+// origin はエラーの発生地点 (最深部のコールスタックの先頭)、
+// trace はラップ経路ごとのメッセージ・コード・ラップ地点と発生時の完全な
+// コールスタック (failure の %+v 形式)。
 func Err(err error) slog.Attr {
+	if err == nil {
+		// スキーマを他の分岐と揃える (集約基盤でのフィールド有無の揺れを防ぐ)
+		return slog.Group("error",
+			slog.String("message", "(nil)"), slog.String("code", ""))
+	}
 	attrs := []any{
 		slog.String("message", err.Error()),
 		slog.String("code", string(apperrors.CodeOf(err))),
+	}
+	if traceEnabled() {
+		trace := fmt.Sprintf("%+v", err)
+		if len(trace) > traceMaxBytes {
+			cut := traceMaxBytes
+			for cut > 0 && !utf8.RuneStart(trace[cut]) {
+				cut-- // マルチバイト文字の途中で切らない
+			}
+			trace = trace[:cut] + "\n... (truncated)"
+		}
+		attrs = append(attrs, slog.String("trace", trace))
 	}
 	if cs, ok := failure.CallStackOf(err); ok {
 		// 先頭フレームは apperrors ラッパー自身になるため、その外側の呼び出し元を探す
