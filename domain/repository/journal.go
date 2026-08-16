@@ -51,13 +51,16 @@ type JournalRepository interface {
 	// 既存仕訳を返す。判定ロジックは domain/service/bookkeeping.DuplicateService が担う。
 	FindDuplicateCandidates(ctx context.Context, year model.FiscalYear, contentHash string, date model.Date) ([]model.JournalEntry, error)
 
-	// Update は仕訳を明細ごと差し替え、監査ログを同一トランザクションで記録する。
-	// 存在しなければ CodeNotFound。
-	Update(ctx context.Context, entry *model.JournalEntry, audit *model.JournalAuditLog) error
+	// Update は仕訳を明細ごと差し替える。存在しなければ CodeNotFound。
+	//
+	// 監査ログ (電帳法対応) は実装側の責務: 同一トランザクション内で更新前の
+	// 現行レコードを取得して BeforeSnapshot を生成し、更新後の内容を
+	// AfterSnapshot として記録する (呼び出し側の事前取得との競合を防ぐ)。
+	Update(ctx context.Context, entry *model.JournalEntry) error
 
-	// Delete は仕訳を明細ごと削除し、監査ログを同一トランザクションで記録する。
-	// 存在しなければ CodeNotFound。
-	Delete(ctx context.Context, id int64, audit *model.JournalAuditLog) error
+	// Delete は仕訳を明細ごと削除する。存在しなければ CodeNotFound。
+	// 監査ログは Update と同様に実装側が同一トランザクション内で記録する。
+	Delete(ctx context.Context, id int64) error
 }
 
 // JournalAuditRepository は仕訳の訂正・削除履歴の読み取り契約。

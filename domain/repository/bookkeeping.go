@@ -38,6 +38,10 @@ type OpeningBalanceRepository interface {
 	// Upsert は (年度, 科目) をキーに期首残高を登録・更新する。
 	Upsert(ctx context.Context, balance *model.OpeningBalance) error
 
+	// FindByID は期首残高を1件取得する。存在しなければ CodeNotFound。
+	// 年度締めの検証 (対象レコードの年度確認) に使う。
+	FindByID(ctx context.Context, id int64) (*model.OpeningBalance, error)
+
 	// ListByFiscalYear は年度の期首残高を科目コード順に返す。
 	ListByFiscalYear(ctx context.Context, year model.FiscalYear) ([]model.OpeningBalance, error)
 

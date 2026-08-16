@@ -15,7 +15,12 @@ type YearScopedRepository[T any] interface {
 	// Create は明細を保存し、採番された ID を返す。
 	Create(ctx context.Context, record *T) (int64, error)
 
+	// FindByID は明細を1件取得する。存在しなければ CodeNotFound。
+	// 年度締めの検証 (対象レコードの年度確認) に使う。
+	FindByID(ctx context.Context, id int64) (*T, error)
+
 	// Update は明細を差し替える。存在しなければ CodeNotFound。
+	// 保存済みレコードの年度 (FiscalYear) は変更不可とし、変更要求は CodeBadRequest。
 	// (繰越損失の充当額・固定資産の償却累計額の更新等に使う)
 	Update(ctx context.Context, record *T) error
 
