@@ -30,7 +30,11 @@ test-cover:
 	go test ./... -race -coverprofile=coverage.out
 	go tool cover -func=coverage.out | tail -1
 
-# 全パッケージのビルド検証。サーバーバイナリの出力ターゲットは
-# cmd/server 追加時 (interface 層の PR) に差し替える。
+# static binary を bin/server に出力する (pure Go SQLite のため CGO 不要)。
 build:
-	CGO_ENABLED=0 go build ./...
+	@mkdir -p bin
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/server ./cmd/server
+
+# ローカル実行。KAKUTEI_DB_PATH / KAKUTEI_ADDR で上書き可能。
+run:
+	go run ./cmd/server
