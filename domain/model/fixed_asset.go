@@ -68,3 +68,6 @@ func (a *FixedAsset) Validate() error {
 func (a *FixedAsset) BookValue() Money {
 	return a.AcquisitionCost - a.AccumulatedDepreciation
 }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (a *FixedAsset) Year() FiscalYear { return a.FiscalYear }

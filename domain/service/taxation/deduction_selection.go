@@ -170,6 +170,12 @@ func (s *IncomeTaxService) selectBestDeductionPattern(
 	if err != nil {
 		return nil, err
 	}
+	// 明細がない場合は年末調整済みの控除額 (源泉徴収票の転記) を使う。
+	// 合計所得金額 2,000万円以下の要件は同様に適用する。
+	if len(in.HousingLoans) == 0 && in.YearEndAdjustedHousingLoanCredit > 0 &&
+		aggregateIncome <= policy.HousingLoanIncomeLimit {
+		housingCredit = in.YearEndAdjustedHousingLoanCredit
+	}
 	donations := breakdownDonations(in.Donations)
 
 	choices := func(amount model.Money) []bool {

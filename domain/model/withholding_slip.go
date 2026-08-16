@@ -52,3 +52,6 @@ func (w *WithholdingSlip) Validate() error {
 	}
 	return nil
 }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (w *WithholdingSlip) Year() FiscalYear { return w.FiscalYear }
