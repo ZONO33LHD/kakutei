@@ -45,6 +45,11 @@ type IncomeTaxInput struct {
 	// 税額控除の材料
 	HousingLoans []model.HousingLoanDetail
 
+	// YearEndAdjustedHousingLoanCredit は年末調整で適用済みの住宅借入金等特別控除額
+	// (源泉徴収票の転記)。HousingLoans の明細がある場合は明細からの計算を優先し、
+	// この値は無視する (二重計上防止)。
+	YearEndAdjustedHousingLoanCredit model.Money
+
 	// 繰越・源泉・予定納税
 	LossCarryforward    model.Money // 純損失の繰越控除額
 	SalaryWithheldTax   model.Money // 給与の源泉徴収税額
@@ -227,6 +232,7 @@ func (s *IncomeTaxService) validate(in *IncomeTaxInput) error {
 		{"社会保険料", in.SocialInsurance}, {"地震保険料", in.EarthquakeInsurancePremium},
 		{"旧長期損害保険料", in.OldLongTermInsurancePremium}, {"医療費", in.MedicalExpenses},
 		{"セルフメディケーション対象額", in.SelfMedicationExpenses}, {"ふるさと納税", in.FurusatoDonation},
+		{"年末調整済み住宅ローン控除", in.YearEndAdjustedHousingLoanCredit},
 		{"iDeCo掛金", in.IdecoContribution}, {"小規模企業共済掛金", in.SmallBusinessMutualAid},
 		{"心身障害者扶養共済掛金", in.DisabilityMutualAid}, {"繰越損失", in.LossCarryforward},
 		{"給与源泉徴収税額", in.SalaryWithheldTax}, {"事業源泉徴収税額", in.BusinessWithheldTax},

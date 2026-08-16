@@ -59,7 +59,20 @@ type HousingLoanDetail struct {
 	CostForProration     Money  // 按分用コスト (購入価格 or リフォーム費用)
 }
 
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (h *HousingLoanDetail) Year() FiscalYear { return h.FiscalYear }
+
+// Validate は FiscalYear が設定されている場合、入居日が年度末以前であることも
+// 検証する (年度0の純粋な計算入力は検証しない)。
 func (h *HousingLoanDetail) Validate() error {
+	if h.FiscalYear != 0 {
+		if err := h.FiscalYear.Validate(); err != nil {
+			return err
+		}
+		if !h.MoveInDate.IsZero() && h.MoveInDate.After(h.FiscalYear.End()) {
+			return apperrors.New(apperrors.CodeBadRequest, "入居日が課税年度末より後です")
+		}
+	}
 	if err := h.Kind.Validate(); err != nil {
 		return err
 	}

@@ -34,7 +34,20 @@ type Dependent struct {
 	OtherTaxpayerDependent bool // 他の納税者の扶養親族に該当する (二重控除防止)
 }
 
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (d *Dependent) Year() FiscalYear { return d.FiscalYear }
+
+// Validate は FiscalYear が設定されている場合、年度の妥当性と生年月日の整合も
+// 検証する (0 は純粋な計算入力として許容し、永続化時は usecase が非0を保証する)。
 func (d *Dependent) Validate() error {
+	if d.FiscalYear != 0 {
+		if err := d.FiscalYear.Validate(); err != nil {
+			return err
+		}
+		if !d.BirthDate.IsZero() && d.BirthDate.After(d.FiscalYear.End()) {
+			return apperrors.New(apperrors.CodeBadRequest, "扶養親族の生年月日が課税年度末より後です")
+		}
+	}
 	if d.Name == "" {
 		return apperrors.New(apperrors.CodeBadRequest, "扶養親族の氏名は必須です")
 	}
@@ -64,7 +77,19 @@ type Spouse struct {
 	OtherTaxpayerDependent bool // 他の納税者の扶養親族に該当する
 }
 
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (s *Spouse) Year() FiscalYear { return s.FiscalYear }
+
+// Validate は FiscalYear が設定されている場合、年度と生年月日の整合も検証する。
 func (s *Spouse) Validate() error {
+	if s.FiscalYear != 0 {
+		if err := s.FiscalYear.Validate(); err != nil {
+			return err
+		}
+		if !s.BirthDate.IsZero() && s.BirthDate.After(s.FiscalYear.End()) {
+			return apperrors.New(apperrors.CodeBadRequest, "配偶者の生年月日が課税年度末より後です")
+		}
+	}
 	if s.Name == "" {
 		return apperrors.New(apperrors.CodeBadRequest, "配偶者の氏名は必須です")
 	}

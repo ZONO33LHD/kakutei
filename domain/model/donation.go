@@ -42,7 +42,20 @@ type DonationRecord struct {
 	SourceFile    string // 読み取り元ファイル。空 = 未設定
 }
 
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (d *DonationRecord) Year() FiscalYear { return d.FiscalYear }
+
+// Validate は FiscalYear が設定されている場合、寄附日が年度内であることも検証する。
 func (d *DonationRecord) Validate() error {
+	if d.FiscalYear != 0 {
+		if err := d.FiscalYear.Validate(); err != nil {
+			return err
+		}
+		if !d.Date.IsZero() && !d.FiscalYear.Contains(d.Date) {
+			return apperrors.Newf(apperrors.CodeBadRequest,
+				"寄附日 %s が年度 %d の期間外です", d.Date, int(d.FiscalYear))
+		}
+	}
 	if err := d.Kind.Validate(); err != nil {
 		return err
 	}
@@ -71,7 +84,20 @@ type FurusatoDonation struct {
 	SourceFile     string
 }
 
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (f *FurusatoDonation) Year() FiscalYear { return f.FiscalYear }
+
+// Validate は FiscalYear が設定されている場合、寄附日が年度内であることも検証する。
 func (f *FurusatoDonation) Validate() error {
+	if f.FiscalYear != 0 {
+		if err := f.FiscalYear.Validate(); err != nil {
+			return err
+		}
+		if !f.Date.IsZero() && !f.FiscalYear.Contains(f.Date) {
+			return apperrors.Newf(apperrors.CodeBadRequest,
+				"寄附日 %s が年度 %d の期間外です", f.Date, int(f.FiscalYear))
+		}
+	}
 	if f.Municipality == "" {
 		return apperrors.New(apperrors.CodeBadRequest, "寄附先自治体名は必須です")
 	}

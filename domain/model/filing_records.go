@@ -251,3 +251,21 @@ func (o *OtherIncome) Validate() error {
 func (o *OtherIncome) NetIncome() Money {
 	return (o.Revenue - o.Expenses).ClampNonNegative()
 }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (m *MedicalExpense) Year() FiscalYear { return m.FiscalYear }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (s *SocialInsuranceItem) Year() FiscalYear { return s.FiscalYear }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (p *InsurancePolicy) Year() FiscalYear { return p.FiscalYear }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (b *BusinessWithholding) Year() FiscalYear { return b.FiscalYear }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (l *LossCarryforward) Year() FiscalYear { return l.FiscalYear }
+
+// Year は所属する課税年度を返す (YearScoped 契約)。
+func (o *OtherIncome) Year() FiscalYear { return o.FiscalYear }
