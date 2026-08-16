@@ -14,11 +14,10 @@ import (
 type EntrySide string
 
 const (
-	SideDebit  EntrySide = "debit"  // 借方
-	SideCredit EntrySide = "credit" // 貸方
+	SideDebit  EntrySide = "debit"
+	SideCredit EntrySide = "credit"
 )
 
-// Validate は定義済みの側かを検証する。
 func (s EntrySide) Validate() error {
 	if s == SideDebit || s == SideCredit {
 		return nil
@@ -37,7 +36,6 @@ const (
 	LineTaxOutOfScope LineTaxCategory = "out_of_scope"
 )
 
-// Validate は定義済みの区分かを検証する。
 func (c LineTaxCategory) Validate() error {
 	switch c {
 	case LineTaxTaxable10, LineTaxTaxable8, LineTaxNone, LineTaxExempt, LineTaxOutOfScope:
@@ -50,13 +48,12 @@ func (c LineTaxCategory) Validate() error {
 type JournalSource string
 
 const (
-	SourceManual     JournalSource = "manual"     // 手入力
-	SourceCSVImport  JournalSource = "csv_import" // CSV取り込み
+	SourceManual     JournalSource = "manual"
+	SourceCSVImport  JournalSource = "csv_import"
 	SourceOCR        JournalSource = "ocr"        // 領収書・請求書等の読み取り
 	SourceAdjustment JournalSource = "adjustment" // 決算整理仕訳
 )
 
-// Validate は定義済みの入力元かを検証する。
 func (s JournalSource) Validate() error {
 	switch s {
 	case SourceManual, SourceCSVImport, SourceOCR, SourceAdjustment:
@@ -75,7 +72,6 @@ type JournalLine struct {
 	TaxAmount   Money           // 内消費税額 (参考値)
 }
 
-// Validate は明細単体の検証を行う。
 func (l *JournalLine) Validate() error {
 	if err := l.Side.Validate(); err != nil {
 		return err
@@ -179,12 +175,10 @@ func (e *JournalEntry) Validate() error {
 	return nil
 }
 
-// TotalDebit は借方合計を返す。
 func (e *JournalEntry) TotalDebit() Money {
 	return e.totalBySide(SideDebit)
 }
 
-// TotalCredit は貸方合計を返す。
 func (e *JournalEntry) TotalCredit() Money {
 	return e.totalBySide(SideCredit)
 }

@@ -16,7 +16,6 @@ const (
 	maxFiscalYear = 2100
 )
 
-// Validate は課税年度として妥当な範囲かを検証する。
 func (y FiscalYear) Validate() error {
 	if y < minFiscalYear || y > maxFiscalYear {
 		return apperrors.Newf(apperrors.CodeBadRequest,
@@ -25,7 +24,6 @@ func (y FiscalYear) Validate() error {
 	return nil
 }
 
-// Start は期首 (1月1日) を返す。
 func (y FiscalYear) Start() Date {
 	return Date{year: int(y), month: time.January, day: 1}
 }
@@ -35,7 +33,6 @@ func (y FiscalYear) End() Date {
 	return Date{year: int(y), month: time.December, day: 31}
 }
 
-// Contains は日付が年度内かどうか。
 func (y FiscalYear) Contains(d Date) bool {
 	return d.Year() == int(y)
 }

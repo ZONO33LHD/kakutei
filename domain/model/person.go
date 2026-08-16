@@ -12,7 +12,6 @@ const (
 	DisabilitySpecialCohabiting DisabilityKind = "special_cohabiting" // 同居特別障害者
 )
 
-// Validate は定義済みの区分かを検証する。
 func (k DisabilityKind) Validate() error {
 	switch k {
 	case DisabilityNone, DisabilityGeneral, DisabilitySpecial, DisabilitySpecialCohabiting:
@@ -28,14 +27,13 @@ type Dependent struct {
 	Name                   string
 	Relationship           string // 続柄 (子/親 等)
 	BirthDate              Date
-	Income                 Money          // 年間の合計所得金額
-	Disability             DisabilityKind // 障害者控除の区分
-	Cohabiting             bool           // 同居しているか
-	DirectAscendant        bool           // 本人または配偶者の直系尊属か (同居老親等58万の要件)
-	OtherTaxpayerDependent bool           // 他の納税者の扶養親族に該当する (二重控除防止)
+	Income                 Money // 年間の合計所得金額
+	Disability             DisabilityKind
+	Cohabiting             bool
+	DirectAscendant        bool // 本人または配偶者の直系尊属か (同居老親等58万の要件)
+	OtherTaxpayerDependent bool // 他の納税者の扶養親族に該当する (二重控除防止)
 }
 
-// Validate は扶養親族の自己検証を行う。
 func (d *Dependent) Validate() error {
 	if d.Name == "" {
 		return apperrors.New(apperrors.CodeBadRequest, "扶養親族の氏名は必須です")
@@ -60,13 +58,12 @@ type Spouse struct {
 	FiscalYear             FiscalYear
 	Name                   string
 	BirthDate              Date
-	Income                 Money          // 年間の合計所得金額
-	Disability             DisabilityKind // 障害者控除の区分
+	Income                 Money // 年間の合計所得金額
+	Disability             DisabilityKind
 	Cohabiting             bool
 	OtherTaxpayerDependent bool // 他の納税者の扶養親族に該当する
 }
 
-// Validate は配偶者情報の自己検証を行う。
 func (s *Spouse) Validate() error {
 	if s.Name == "" {
 		return apperrors.New(apperrors.CodeBadRequest, "配偶者の氏名は必須です")
@@ -94,7 +91,6 @@ const (
 	WidowSingleParent WidowStatus = "single_parent" // ひとり親
 )
 
-// Validate は定義済みの区分かを検証する。
 func (s WidowStatus) Validate() error {
 	switch s {
 	case WidowNone, WidowWidow, WidowSingleParent:

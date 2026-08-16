@@ -11,7 +11,6 @@ import (
 //	1xxx: 資産 / 2xxx: 負債 / 3xxx: 純資産 / 4xxx: 収益 / 5xxx: 費用
 type AccountCode string
 
-// Validate はコード形式 (4桁数字) を検証する。
 func (c AccountCode) Validate() error {
 	if len(c) != 4 {
 		return apperrors.Newf(apperrors.CodeBadRequest, "勘定科目コードは4桁の数字です: %q", string(c))
@@ -28,14 +27,13 @@ func (c AccountCode) Validate() error {
 type AccountCategory string
 
 const (
-	CategoryAsset     AccountCategory = "asset"     // 資産
-	CategoryLiability AccountCategory = "liability" // 負債
-	CategoryEquity    AccountCategory = "equity"    // 純資産
-	CategoryRevenue   AccountCategory = "revenue"   // 収益
-	CategoryExpense   AccountCategory = "expense"   // 費用
+	CategoryAsset     AccountCategory = "asset"
+	CategoryLiability AccountCategory = "liability"
+	CategoryEquity    AccountCategory = "equity"
+	CategoryRevenue   AccountCategory = "revenue"
+	CategoryExpense   AccountCategory = "expense"
 )
 
-// Validate は定義済みの分類かを検証する。
 func (c AccountCategory) Validate() error {
 	switch c {
 	case CategoryAsset, CategoryLiability, CategoryEquity, CategoryRevenue, CategoryExpense:
@@ -62,7 +60,6 @@ const (
 	ConsumptionOutOfScope ConsumptionTaxCategory = "out_of_scope" // 不課税
 )
 
-// Validate は定義済みの消費税区分かを検証する。
 func (c ConsumptionTaxCategory) Validate() error {
 	switch c {
 	case ConsumptionTaxable, ConsumptionNonTaxable, ConsumptionExempt, ConsumptionOutOfScope:
@@ -82,7 +79,6 @@ type Account struct {
 	SortOrder   int
 }
 
-// Validate は勘定科目の自己検証を行う。
 func (a *Account) Validate() error {
 	if err := a.Code.Validate(); err != nil {
 		return err

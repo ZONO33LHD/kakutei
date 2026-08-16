@@ -13,7 +13,6 @@ const (
 	DonationOther          DonationKind = "other"           // その他の特定寄附金
 )
 
-// Validate は定義済みの種別かを検証する。
 func (k DonationKind) Validate() error {
 	switch k {
 	case DonationPolitical, DonationNPO, DonationPublicInterest, DonationSpecified, DonationOther:
@@ -36,14 +35,13 @@ type DonationRecord struct {
 	ID            int64
 	FiscalYear    FiscalYear
 	Kind          DonationKind
-	RecipientName string // 寄附先名
+	RecipientName string
 	Amount        Money
 	Date          Date
 	ReceiptNumber string // 受領証明書番号。空 = 未設定
 	SourceFile    string // 読み取り元ファイル。空 = 未設定
 }
 
-// Validate は寄附金の自己検証を行う。
 func (d *DonationRecord) Validate() error {
 	if err := d.Kind.Validate(); err != nil {
 		return err
@@ -64,7 +62,7 @@ func (d *DonationRecord) Validate() error {
 type FurusatoDonation struct {
 	ID             int64
 	FiscalYear     FiscalYear
-	Municipality   string // 寄附先自治体名
+	Municipality   string
 	Prefecture     string // 都道府県。空 = 未設定
 	Amount         Money
 	Date           Date
@@ -73,7 +71,6 @@ type FurusatoDonation struct {
 	SourceFile     string
 }
 
-// Validate はふるさと納税寄附の自己検証を行う。
 func (f *FurusatoDonation) Validate() error {
 	if f.Municipality == "" {
 		return apperrors.New(apperrors.CodeBadRequest, "寄附先自治体名は必須です")

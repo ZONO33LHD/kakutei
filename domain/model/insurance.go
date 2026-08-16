@@ -11,7 +11,6 @@ type LifeInsurancePremiums struct {
 	AnnuityOld  Money // 個人年金保険料 (旧制度)
 }
 
-// Validate は各支払額が非負かつ範囲内であることを検証する。
 func (p *LifeInsurancePremiums) Validate() error {
 	for _, v := range []struct {
 		name   string
@@ -31,7 +30,6 @@ func (p *LifeInsurancePremiums) Validate() error {
 	return nil
 }
 
-// IsZero は全区分が未入力 (0) かどうか。
 func (p *LifeInsurancePremiums) IsZero() bool {
 	return p.GeneralNew == 0 && p.GeneralOld == 0 && p.MedicalCare == 0 &&
 		p.AnnuityNew == 0 && p.AnnuityOld == 0
