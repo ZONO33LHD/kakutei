@@ -17,7 +17,6 @@ type JournalAuditRepository struct {
 
 var _ repository.JournalAuditRepository = (*JournalAuditRepository)(nil)
 
-// NewJournalAuditRepository は JournalAuditRepository を生成する。
 func NewJournalAuditRepository(db *sql.DB) *JournalAuditRepository {
 	return &JournalAuditRepository{db: db}
 }

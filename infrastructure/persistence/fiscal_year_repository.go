@@ -18,7 +18,6 @@ type FiscalYearRepository struct {
 
 var _ repository.FiscalYearRepository = (*FiscalYearRepository)(nil)
 
-// NewFiscalYearRepository は FiscalYearRepository を生成する。
 func NewFiscalYearRepository(db *sql.DB) *FiscalYearRepository {
 	return &FiscalYearRepository{db: db}
 }
@@ -48,7 +47,6 @@ func scanFiscalYear(scan func(dest ...any) error) (*model.FiscalYearStatus, erro
 	return &s, nil
 }
 
-// Find は年度を取得する。
 func (r *FiscalYearRepository) Find(ctx context.Context, year model.FiscalYear) (*model.FiscalYearStatus, error) {
 	row := r.db.QueryRowContext(ctx,
 		"SELECT year, state, created_at FROM fiscal_years WHERE year = ?", int(year))
@@ -85,7 +83,6 @@ func (r *FiscalYearRepository) List(ctx context.Context) ([]model.FiscalYearStat
 	return years, nil
 }
 
-// UpdateState は年度の開閉状態を変更する。
 func (r *FiscalYearRepository) UpdateState(ctx context.Context, year model.FiscalYear, state model.FiscalYearState) error {
 	if err := state.Validate(); err != nil {
 		return err

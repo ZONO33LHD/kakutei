@@ -17,7 +17,6 @@ type OpeningBalanceRepository struct {
 
 var _ repository.OpeningBalanceRepository = (*OpeningBalanceRepository)(nil)
 
-// NewOpeningBalanceRepository は OpeningBalanceRepository を生成する。
 func NewOpeningBalanceRepository(db *sql.DB) *OpeningBalanceRepository {
 	return &OpeningBalanceRepository{db: db}
 }
@@ -39,7 +38,6 @@ func (r *OpeningBalanceRepository) Upsert(ctx context.Context, balance *model.Op
 	})
 }
 
-// FindByID は期首残高を1件取得する。
 func (r *OpeningBalanceRepository) FindByID(ctx context.Context, id int64) (*model.OpeningBalance, error) {
 	var b model.OpeningBalance
 	var amount int64

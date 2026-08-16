@@ -14,10 +14,8 @@ type AccountRepository struct {
 	db *sql.DB
 }
 
-// インターフェース適合の静的検証。
 var _ repository.AccountRepository = (*AccountRepository)(nil)
 
-// NewAccountRepository は AccountRepository を生成する。
 func NewAccountRepository(db *sql.DB) *AccountRepository {
 	return &AccountRepository{db: db}
 }
@@ -53,7 +51,6 @@ func (r *AccountRepository) FindAll(ctx context.Context) ([]model.Account, error
 	return accounts, nil
 }
 
-// FindByCode は科目を1件取得する。
 func (r *AccountRepository) FindByCode(ctx context.Context, code model.AccountCode) (*model.Account, error) {
 	row := r.db.QueryRowContext(ctx,
 		"SELECT "+accountColumns+" FROM accounts WHERE code = ?", code)

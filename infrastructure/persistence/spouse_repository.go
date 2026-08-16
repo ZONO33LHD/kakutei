@@ -20,7 +20,6 @@ type SpouseRepository struct {
 
 var _ repository.SpouseRepository = (*SpouseRepository)(nil)
 
-// NewSpouseRepository は SpouseRepository を生成する。
 func NewSpouseRepository(db *sql.DB) *SpouseRepository {
 	return &SpouseRepository{db: db}
 }

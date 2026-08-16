@@ -159,7 +159,6 @@ func (r *filingRepo[T]) ListByFiscalYear(ctx context.Context, year model.FiscalY
 	return records, nil
 }
 
-// Delete は明細を1件削除する。
 func (r *filingRepo[T]) Delete(ctx context.Context, id int64) error {
 	return inTx(ctx, r.db, func(tx *sql.Tx) error {
 		var storedYear int
@@ -185,7 +184,6 @@ func (r *filingRepo[T]) Delete(ctx context.Context, id int64) error {
 
 // --- 各申告資料のコンストラクタ ---
 
-// NewWithholdingSlipRepository は源泉徴収票リポジトリを生成する。
 func NewWithholdingSlipRepository(db *sql.DB) repository.WithholdingSlipRepository {
 	return &filingRepo[model.WithholdingSlip]{
 		db: db, kind: "withholding_slip", label: "源泉徴収票",
@@ -196,7 +194,6 @@ func NewWithholdingSlipRepository(db *sql.DB) repository.WithholdingSlipReposito
 	}
 }
 
-// NewDependentRepository は扶養親族リポジトリを生成する。
 func NewDependentRepository(db *sql.DB) repository.DependentRepository {
 	return &filingRepo[model.Dependent]{
 		db: db, kind: "dependent", label: "扶養親族",
@@ -207,7 +204,6 @@ func NewDependentRepository(db *sql.DB) repository.DependentRepository {
 	}
 }
 
-// NewFurusatoDonationRepository はふるさと納税リポジトリを生成する。
 func NewFurusatoDonationRepository(db *sql.DB) repository.FurusatoDonationRepository {
 	return &filingRepo[model.FurusatoDonation]{
 		db: db, kind: "furusato_donation", label: "ふるさと納税",
@@ -218,7 +214,6 @@ func NewFurusatoDonationRepository(db *sql.DB) repository.FurusatoDonationReposi
 	}
 }
 
-// NewDonationRepository は寄附金リポジトリを生成する。
 func NewDonationRepository(db *sql.DB) repository.DonationRepository {
 	return &filingRepo[model.DonationRecord]{
 		db: db, kind: "donation", label: "寄附金",
@@ -229,7 +224,6 @@ func NewDonationRepository(db *sql.DB) repository.DonationRepository {
 	}
 }
 
-// NewMedicalExpenseRepository は医療費明細リポジトリを生成する。
 func NewMedicalExpenseRepository(db *sql.DB) repository.MedicalExpenseRepository {
 	return &filingRepo[model.MedicalExpense]{
 		db: db, kind: "medical_expense", label: "医療費明細",
@@ -240,7 +234,6 @@ func NewMedicalExpenseRepository(db *sql.DB) repository.MedicalExpenseRepository
 	}
 }
 
-// NewSocialInsuranceRepository は社会保険料リポジトリを生成する。
 func NewSocialInsuranceRepository(db *sql.DB) repository.SocialInsuranceRepository {
 	return &filingRepo[model.SocialInsuranceItem]{
 		db: db, kind: "social_insurance", label: "社会保険料",
@@ -251,7 +244,6 @@ func NewSocialInsuranceRepository(db *sql.DB) repository.SocialInsuranceReposito
 	}
 }
 
-// NewInsurancePolicyRepository は保険契約リポジトリを生成する。
 func NewInsurancePolicyRepository(db *sql.DB) repository.InsurancePolicyRepository {
 	return &filingRepo[model.InsurancePolicy]{
 		db: db, kind: "insurance_policy", label: "保険契約",
@@ -262,7 +254,6 @@ func NewInsurancePolicyRepository(db *sql.DB) repository.InsurancePolicyReposito
 	}
 }
 
-// NewBusinessWithholdingRepository は事業源泉徴収リポジトリを生成する。
 func NewBusinessWithholdingRepository(db *sql.DB) repository.BusinessWithholdingRepository {
 	return &filingRepo[model.BusinessWithholding]{
 		db: db, kind: "business_withholding", label: "事業源泉徴収",
@@ -273,7 +264,6 @@ func NewBusinessWithholdingRepository(db *sql.DB) repository.BusinessWithholding
 	}
 }
 
-// NewLossCarryforwardRepository は繰越損失リポジトリを生成する。
 func NewLossCarryforwardRepository(db *sql.DB) repository.LossCarryforwardRepository {
 	return &filingRepo[model.LossCarryforward]{
 		db: db, kind: "loss_carryforward", label: "繰越損失",
@@ -284,7 +274,6 @@ func NewLossCarryforwardRepository(db *sql.DB) repository.LossCarryforwardReposi
 	}
 }
 
-// NewHousingLoanRepository は住宅ローン控除明細リポジトリを生成する。
 func NewHousingLoanRepository(db *sql.DB) repository.HousingLoanRepository {
 	return &filingRepo[model.HousingLoanDetail]{
 		db: db, kind: "housing_loan", label: "住宅ローン控除明細",
@@ -295,7 +284,6 @@ func NewHousingLoanRepository(db *sql.DB) repository.HousingLoanRepository {
 	}
 }
 
-// NewFixedAssetRepository は固定資産リポジトリを生成する。
 func NewFixedAssetRepository(db *sql.DB) repository.FixedAssetRepository {
 	return &filingRepo[model.FixedAsset]{
 		db: db, kind: "fixed_asset", label: "固定資産",
@@ -306,7 +294,6 @@ func NewFixedAssetRepository(db *sql.DB) repository.FixedAssetRepository {
 	}
 }
 
-// NewOtherIncomeRepository はその他所得リポジトリを生成する。
 func NewOtherIncomeRepository(db *sql.DB) repository.OtherIncomeRepository {
 	return &filingRepo[model.OtherIncome]{
 		db: db, kind: "other_income", label: "その他所得",
