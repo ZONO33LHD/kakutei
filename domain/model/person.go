@@ -37,8 +37,8 @@ type Dependent struct {
 // Year は所属する課税年度を返す (YearScoped 契約)。
 func (d *Dependent) Year() FiscalYear { return d.FiscalYear }
 
-// FiscalYear が設定されている場合は年度の妥当性と生年月日の整合も検証する
-// (0 は純粋な計算入力として許容し、永続化時は usecase が非0を保証する)。
+// Validate は FiscalYear が設定されている場合、年度の妥当性と生年月日の整合も
+// 検証する (0 は純粋な計算入力として許容し、永続化時は usecase が非0を保証する)。
 func (d *Dependent) Validate() error {
 	if d.FiscalYear != 0 {
 		if err := d.FiscalYear.Validate(); err != nil {
@@ -80,7 +80,7 @@ type Spouse struct {
 // Year は所属する課税年度を返す (YearScoped 契約)。
 func (s *Spouse) Year() FiscalYear { return s.FiscalYear }
 
-// FiscalYear が設定されている場合は年度と生年月日の整合も検証する。
+// Validate は FiscalYear が設定されている場合、年度と生年月日の整合も検証する。
 func (s *Spouse) Validate() error {
 	if s.FiscalYear != 0 {
 		if err := s.FiscalYear.Validate(); err != nil {

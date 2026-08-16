@@ -15,9 +15,9 @@ import (
 // IncomeTaxOptions は申告時にリクエストで指定する本人属性・当年オプション
 // (永続化しない入力)。
 type IncomeTaxOptions struct {
-	BlueReturnDeduction    model.Money          // 青色申告特別控除 (0/10万/55万/65万)
-	WidowStatus            model.WidowStatus    // 寡婦/ひとり親
-	SelfDisability         model.DisabilityKind // 本人の障害区分
+	BlueReturnDeduction    model.Money       // 青色申告特別控除 (0/10万/55万/65万)
+	WidowStatus            model.WidowStatus // 寡婦/ひとり親
+	SelfDisability         model.DisabilityKind
 	IsWorkingStudent       bool
 	SelfMedicationExpenses model.Money // セルフメディケーション対象OTC購入額
 	SelfMedicationEligible bool
@@ -29,26 +29,22 @@ type IncomeTaxOptions struct {
 	PensionIsOver65        bool
 }
 
-// ConsumptionTaxOptions は消費税計算のオプション。
 type ConsumptionTaxOptions struct {
 	Method                 taxation.ConsumptionTaxMethod
-	SimplifiedBusinessType policy.SimplifiedBusinessType // 簡易課税の事業区分
-	InterimPayment         model.Money                   // 中間納付税額
+	SimplifiedBusinessType policy.SimplifiedBusinessType
+	InterimPayment         model.Money
 }
 
-// ConsumptionTaxOutcome は消費税計算の結果と帳簿集計の内訳。
 type ConsumptionTaxOutcome struct {
 	Aggregate *bookkeeping.ConsumptionAggregate // 帳簿からの集計 (警告フラグ含む)
 	Result    *taxation.ConsumptionTaxResult
 }
 
-// SanityCheckOutcome は申告前チェックの結果。
 type SanityCheckOutcome struct {
 	IncomeTax *taxation.IncomeTaxResult
 	Check     *taxation.SanityCheckResult
 }
 
-// FurusatoSummary はふるさと納税の集計。
 type FurusatoSummary struct {
 	FiscalYear        model.FiscalYear
 	TotalAmount       model.Money
@@ -68,11 +64,10 @@ type FurusatoSummary struct {
 // DepreciationEntry は減価償却計算の1資産分。
 type DepreciationEntry struct {
 	Asset             model.FixedAsset
-	Months            int         // 当年の償却月数
-	CurrentYearAmount model.Money // 当年の償却費
+	Months            int // 当年の償却月数
+	CurrentYearAmount model.Money
 }
 
-// DepreciationOutcome は年度の減価償却計算結果。
 type DepreciationOutcome struct {
 	FiscalYear model.FiscalYear
 	Entries    []DepreciationEntry
@@ -82,7 +77,6 @@ type DepreciationOutcome struct {
 // FilingUsecase は確定申告計算のアプリケーションサービス。
 // 帳簿・申告資料から計算材料を収集し、taxation ドメインサービスに委譲する。
 type FilingUsecase interface {
-	// CalculateIncomeTax は所得税を計算する。
 	CalculateIncomeTax(ctx context.Context, year model.FiscalYear, opts IncomeTaxOptions) (*taxation.IncomeTaxResult, error)
 
 	// CalculateConsumptionTax は帳簿の集計から消費税を計算する。
@@ -108,7 +102,6 @@ type filingUsecase struct {
 	consumption *taxation.ConsumptionTaxService
 }
 
-// NewFilingUsecase は FilingUsecase を生成する。
 func NewFilingUsecase(
 	journals repository.JournalRepository,
 	accounts repository.AccountRepository,
@@ -453,7 +446,6 @@ func (u *filingUsecase) SummarizeFurusato(
 	summary.MunicipalityCount = len(municipalities)
 	summary.DeductionAmount = (summary.TotalAmount - policy.FurusatoSelfBurden).ClampNonNegative()
 
-	// 控除上限の推定 (所得税計算に基づく)
 	result, err := u.CalculateIncomeTax(ctx, year, opts)
 	if err != nil {
 		return nil, err

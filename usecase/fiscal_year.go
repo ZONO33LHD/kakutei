@@ -11,18 +11,15 @@ import (
 	"github.com/ZONO33LHD/kakutei/domain/repository"
 )
 
-// FiscalYearUsecase は年度管理のアプリケーションサービス。
 type FiscalYearUsecase interface {
 	// Setup は年度を作成し、勘定科目マスタが未投入なら標準マスタを投入する。
 	Setup(ctx context.Context, year model.FiscalYear) error
 
-	// List は全年度を返す。
 	List(ctx context.Context) ([]model.FiscalYearStatus, error)
 
 	// Close は年度を締める (以後、仕訳・申告資料の変更を拒否する)。
 	Close(ctx context.Context, year model.FiscalYear) error
 
-	// Reopen は締めた年度を再度開く。
 	Reopen(ctx context.Context, year model.FiscalYear) error
 }
 
@@ -31,7 +28,6 @@ type fiscalYearUsecase struct {
 	accounts repository.AccountRepository
 }
 
-// NewFiscalYearUsecase は FiscalYearUsecase を生成する。
 func NewFiscalYearUsecase(
 	years repository.FiscalYearRepository,
 	accounts repository.AccountRepository,

@@ -45,7 +45,7 @@ type DonationRecord struct {
 // Year は所属する課税年度を返す (YearScoped 契約)。
 func (d *DonationRecord) Year() FiscalYear { return d.FiscalYear }
 
-// FiscalYear が設定されている場合は寄附日が年度内であることも検証する。
+// Validate は FiscalYear が設定されている場合、寄附日が年度内であることも検証する。
 func (d *DonationRecord) Validate() error {
 	if d.FiscalYear != 0 {
 		if err := d.FiscalYear.Validate(); err != nil {
@@ -87,7 +87,7 @@ type FurusatoDonation struct {
 // Year は所属する課税年度を返す (YearScoped 契約)。
 func (f *FurusatoDonation) Year() FiscalYear { return f.FiscalYear }
 
-// FiscalYear が設定されている場合は寄附日が年度内であることも検証する。
+// Validate は FiscalYear が設定されている場合、寄附日が年度内であることも検証する。
 func (f *FurusatoDonation) Validate() error {
 	if f.FiscalYear != 0 {
 		if err := f.FiscalYear.Validate(); err != nil {

@@ -10,13 +10,11 @@ import (
 	"github.com/ZONO33LHD/kakutei/domain/service/bookkeeping"
 )
 
-// AddJournalResult は仕訳登録の結果。
 type AddJournalResult struct {
 	ID       int64
 	Warnings []bookkeeping.DuplicateWarning // force 登録時の類似警告
 }
 
-// JournalUsecase は仕訳管理のアプリケーションサービス。
 type JournalUsecase interface {
 	// Add は仕訳を1件登録する。
 	// 完全一致の重複は CodeConflict で拒否し、類似 (同日同額) は
@@ -26,10 +24,8 @@ type JournalUsecase interface {
 	// AddBatch は複数の仕訳を全件成功 or 全件失敗で登録する。
 	AddBatch(ctx context.Context, entries []model.JournalEntry, force bool) ([]int64, []bookkeeping.DuplicateWarning, error)
 
-	// Get は仕訳を1件取得する。
 	Get(ctx context.Context, id int64) (*model.JournalEntry, error)
 
-	// Search は条件検索する。
 	Search(ctx context.Context, q repository.JournalSearchQuery) ([]model.JournalEntry, int, error)
 
 	// Update は仕訳を訂正する (監査ログ付き)。
@@ -51,7 +47,6 @@ type journalUsecase struct {
 	duplicate *bookkeeping.DuplicateService
 }
 
-// NewJournalUsecase は JournalUsecase を生成する。
 func NewJournalUsecase(
 	journals repository.JournalRepository,
 	audits repository.JournalAuditRepository,

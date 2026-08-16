@@ -62,8 +62,8 @@ type HousingLoanDetail struct {
 // Year は所属する課税年度を返す (YearScoped 契約)。
 func (h *HousingLoanDetail) Year() FiscalYear { return h.FiscalYear }
 
-// FiscalYear が設定されている場合は入居日が年度末以前であることも検証する
-// (年度0の純粋な計算入力は検証しない)。
+// Validate は FiscalYear が設定されている場合、入居日が年度末以前であることも
+// 検証する (年度0の純粋な計算入力は検証しない)。
 func (h *HousingLoanDetail) Validate() error {
 	if h.FiscalYear != 0 {
 		if err := h.FiscalYear.Validate(); err != nil {

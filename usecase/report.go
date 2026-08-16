@@ -29,7 +29,6 @@ type reportUsecase struct {
 	statements *bookkeeping.StatementService
 }
 
-// NewReportUsecase は ReportUsecase を生成する。
 func NewReportUsecase(
 	journals repository.JournalRepository,
 	accounts repository.AccountRepository,

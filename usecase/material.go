@@ -29,8 +29,7 @@ type materialUsecase[T any, PT Validatable[T]] struct {
 	repo repository.YearScopedRepository[T]
 }
 
-// NewMaterialUsecase は MaterialUsecase を生成する。
-// PT は *T が Validate() error を持つことを保証する型パラメータ。
+// NewMaterialUsecase の PT は *T が Validate() error を持つことを保証する型パラメータ。
 func NewMaterialUsecase[T any, PT Validatable[T]](
 	repo repository.YearScopedRepository[T],
 ) MaterialUsecase[T] {
@@ -53,7 +52,6 @@ func (u *materialUsecase[T, PT]) Add(ctx context.Context, record *T) (int64, err
 	return u.repo.Create(ctx, record)
 }
 
-// validateID は正の ID であることを検証する。
 func validateID(id int64) error {
 	if id <= 0 {
 		return apperrors.New(apperrors.CodeBadRequest, "IDが不正です")
@@ -100,7 +98,6 @@ type spouseUsecase struct {
 	repo repository.SpouseRepository
 }
 
-// NewSpouseUsecase は SpouseUsecase を生成する。
 func NewSpouseUsecase(repo repository.SpouseRepository) SpouseUsecase {
 	return &spouseUsecase{repo: repo}
 }
@@ -200,7 +197,6 @@ func (r *MaterialRepositories) Validate() error {
 	return nil
 }
 
-// NewMaterials は申告資料の全アプリケーションサービスを組み立てる。
 func NewMaterials(repos MaterialRepositories) (*Materials, error) {
 	if err := repos.Validate(); err != nil {
 		return nil, err
