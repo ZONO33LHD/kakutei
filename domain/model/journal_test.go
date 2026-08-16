@@ -116,6 +116,17 @@ func TestContentHashIgnoresDescription(t *testing.T) {
 	}
 }
 
+// 取引先が異なる仕訳は正当な別取引であり得るため、ハッシュは区別する。
+func TestContentHashDiffersByCounterparty(t *testing.T) {
+	e1 := validEntry()
+	e1.Counterparty = "取引先A"
+	e2 := validEntry()
+	e2.Counterparty = "取引先B"
+	if e1.ContentHash() == e2.ContentHash() {
+		t.Error("取引先が異なる仕訳はハッシュが異なるべき")
+	}
+}
+
 // 税区分が異なる明細は別取引であり得るため、ハッシュは区別する
 // (完全一致ブロックの誤爆防止。真の重複は「類似」警告側で拾う)。
 func TestContentHashDiffersByTaxCategory(t *testing.T) {

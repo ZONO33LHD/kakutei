@@ -38,6 +38,10 @@ type ConsumptionTaxInput struct {
 	// 本則課税で課税売上割合の判定・一括比例配分に使う。
 	NonTaxableSales model.Money
 
+	// ExemptSales は免税売上高 (輸出等、税抜相当)。消費税額は生じないが、
+	// 課税売上割合の分子・分母の両方と課税売上高5億円判定に含まれる。
+	ExemptSales model.Money
+
 	// SimplifiedBusinessType は簡易課税の事業区分 (1〜6)。簡易課税では必須。
 	// ※ 複数事業区分の併用 (事業区分別計算・75%特例) は未対応。
 	//   全売上に単一のみなし仕入率を適用する。
@@ -161,10 +165,12 @@ func (s *ConsumptionTaxService) purchasesTax(in *ConsumptionTaxInput, nationalTa
 				policy.ConsumptionReducedPurchaseRateNum, policy.ConsumptionReducedPurchaseRateDenom)
 
 		// 全額控除の要件 (消費税法第30条第2項):
-		// 課税売上高 (税抜) 5億円以下かつ課税売上割合95%以上。
+		// 課税売上高 (税抜、免税売上を含む) 5億円以下かつ課税売上割合95%以上。
 		// 満たさない場合は一括比例配分方式で按分する (個別対応方式は未対応)。
+		// 課税売上割合 = (課税売上 + 免税売上) / (課税売上 + 免税売上 + 非課税売上)
 		taxableExcl := in.TaxableSales10.MulDiv(100, policy.ConsumptionTaxIncludedDenom10) +
-			in.TaxableSales8.MulDiv(100, policy.ConsumptionTaxIncludedDenom8)
+			in.TaxableSales8.MulDiv(100, policy.ConsumptionTaxIncludedDenom8) +
+			in.ExemptSales
 		totalSales := taxableExcl + in.NonTaxableSales
 		if totalSales <= 0 {
 			return full, false
@@ -195,7 +201,8 @@ func (s *ConsumptionTaxService) validate(in *ConsumptionTaxInput) error {
 	}{
 		{"課税売上高(10%)", in.TaxableSales10}, {"課税売上高(8%)", in.TaxableSales8},
 		{"課税仕入高(10%)", in.TaxablePurchases10}, {"課税仕入高(8%)", in.TaxablePurchases8},
-		{"非課税売上高", in.NonTaxableSales}, {"中間納付税額", in.InterimPayment},
+		{"非課税売上高", in.NonTaxableSales}, {"免税売上高", in.ExemptSales},
+		{"中間納付税額", in.InterimPayment},
 	}
 	for _, v := range amounts {
 		if v.amount < 0 || !v.amount.ValidateAmountRange() {

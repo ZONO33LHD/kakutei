@@ -195,11 +195,11 @@ func (e *JournalEntry) totalBySide(side EntrySide) Money {
 
 // ContentHash は重複検出用の内容ハッシュ (SHA-256) を返す。
 //
-// 日付 + 正規化 (ソート) した明細 (side, 科目, 金額, 税区分, 内税額) から計算する。
-// 摘要・取引先は意図的に含めない — 同一取引が異なる摘要で二重登録されても
-// 検出できるようにするため。税区分は含める — 同日・同科目・同額でも税区分が
-// 異なる明細は別取引 (例: 軽減税率の食料品と標準税率の消耗品) であり得るため、
-// 完全一致ブロックの誤爆を避ける。税区分だけ異なる真の重複は「類似」警告側で拾う。
+// 日付 + 取引先 + 正規化 (ソート) した明細 (side, 科目, 金額, 税区分, 内税額) から
+// 計算する。摘要は意図的に含めない — 同一取引が異なる摘要で二重登録されても
+// 検出できるようにするため。取引先と税区分は含める — 同日・同科目・同額でも
+// 取引先や税区分が異なる明細は正当な別取引であり得るため、完全一致ブロックの
+// 誤爆を避ける。それらだけ異なる真の重複は「類似」警告側で拾う。
 func (e *JournalEntry) ContentHash() string {
 	type key struct {
 		side      EntrySide
@@ -231,6 +231,8 @@ func (e *JournalEntry) ContentHash() string {
 	})
 	var b strings.Builder
 	b.WriteString(e.Date.String())
+	b.WriteString("|")
+	b.WriteString(e.Counterparty)
 	for _, k := range keys {
 		fmt.Fprintf(&b, "|%s:%s:%d:%s:%d", k.side, k.code, k.amount.Yen(), k.taxCat, k.taxAmount.Yen())
 	}
