@@ -75,8 +75,8 @@ func TestJournalEntryValidateErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("エラーになるべき")
 			}
-			var ae *apperrors.AppError
-			if !errors.As(err, &ae) || ae.Code != apperrors.CodeBadRequest {
+			ae, ok := errors.AsType[*apperrors.AppError](err)
+			if !ok || ae.Code != apperrors.CodeBadRequest {
 				t.Errorf("CodeBadRequest であるべき: %v", err)
 			}
 		})
