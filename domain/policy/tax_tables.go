@@ -91,6 +91,18 @@ const (
 	SalaryIncomeAdjust4      = 1_100_000
 )
 
+// 所得金額調整控除 (子ども・特別障害者等、租税特別措置法第41条の3の11)。
+// 給与収入 850万超で、本人が特別障害者/23歳未満の扶養親族がいる/
+// 特別障害者の同一生計配偶者・扶養親族がいる場合:
+//
+//	控除額 = (min(給与収入, 1,000万) − 850万) × 10% (1円未満切上げ)
+const (
+	SalaryAdjustmentThreshold  = 8_500_000  // 適用開始の給与収入
+	SalaryAdjustmentRevenueCap = 10_000_000 // 収入の上限 (これ以上は1,000万として計算)
+	SalaryAdjustmentRatePct    = 10
+	SalaryAdjustmentChildAge   = 23 // 「23歳未満の扶養親族」の判定年齢
+)
+
 // ============================================================
 // 生命保険料控除 (所得税法第76条)
 // ============================================================
@@ -367,6 +379,8 @@ const (
 	HousingLoanGeneralR5Confirmed = 20_000_000
 	// HousingLoanR4R5LastYear はこの年以前の入居に R4-R5 テーブルを適用する。
 	HousingLoanR4R5LastYear = 2023
+	// HousingLoanIncomeLimit は適用要件の合計所得金額上限 (令和4年以降入居)。
+	HousingLoanIncomeLimit = 20_000_000
 )
 
 // ============================================================

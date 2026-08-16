@@ -3,20 +3,23 @@ package policy
 import "testing"
 
 // lookupPension は速算表を適用して控除額を返すテスト用ヘルパ。
+// 実装 (domain/service/taxation) と同様、控除額は年金収入以下にキャップする。
 func lookupPension(table []PensionDeductionBracket, maxDeduction, pension int64) int64 {
+	deduction := maxDeduction
 	for _, b := range table {
 		if pension <= b.Threshold {
-			switch b.RatePct {
-			case 100:
-				return pension
-			case 0:
-				return b.Fixed
-			default:
-				return pension*b.RatePct/100 + b.Fixed
+			if b.RatePct == 0 {
+				deduction = b.Fixed
+			} else {
+				deduction = pension*b.RatePct/100 + b.Fixed
 			}
+			break
 		}
 	}
-	return maxDeduction
+	if deduction > pension {
+		return pension
+	}
+	return deduction
 }
 
 // 国税庁 令和7年分 公的年金等に係る雑所得の速算表との照合 (65歳未満)。
