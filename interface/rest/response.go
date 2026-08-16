@@ -19,12 +19,12 @@ import (
 
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 	"github.com/ZONO33LHD/kakutei/domain/model"
+	"github.com/ZONO33LHD/kakutei/logging"
 )
 
 // maxRequestBodyBytes は 1 リクエストの最大 body サイズ (バッチ仕訳を考慮して 5MiB)。
 const maxRequestBodyBytes = 5 << 20
 
-// errorBody はエラーレスポンスの形式。
 type errorBody struct {
 	Error errorDetail
 }
@@ -34,42 +34,43 @@ type errorDetail struct {
 	Message string
 }
 
-// writeJSON は 200/201 等の正常レスポンスを書き出す。
-func writeJSON(w http.ResponseWriter, status int, payload any) {
+func writeJSON(w http.ResponseWriter, r *http.Request, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	if payload == nil {
 		return
 	}
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		slog.Error("レスポンスの書き込みに失敗しました", "error", err)
+		slog.ErrorContext(r.Context(), "レスポンスの書き込みに失敗しました", "error", err)
 	}
 }
 
 // writeError は apperrors.Code を HTTP ステータスへ変換して書き出す。
 // INTERNAL の詳細はログにのみ残し、クライアントへは一般化したメッセージを返す。
-func writeError(w http.ResponseWriter, err error) {
+// statusByCode はクライアント起因エラーの許可リスト。
+// ここに無いコード (INTERNAL・未知のコード) は詳細を返さず 500 に落とす (fail closed)。
+var statusByCode = map[apperrors.Code]int{
+	apperrors.CodeBadRequest:      http.StatusBadRequest,
+	apperrors.CodeNotFound:        http.StatusNotFound,
+	apperrors.CodeConflict:        http.StatusConflict,
+	apperrors.CodePayloadTooLarge: http.StatusRequestEntityTooLarge,
+}
+
+func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	code := apperrors.CodeOf(err)
-	status := http.StatusInternalServerError
-	message := err.Error()
-	switch code {
-	case apperrors.CodeBadRequest:
-		status = http.StatusBadRequest
-	case apperrors.CodeNotFound:
-		status = http.StatusNotFound
-	case apperrors.CodeConflict:
-		status = http.StatusConflict
-	case apperrors.CodePayloadTooLarge:
-		status = http.StatusRequestEntityTooLarge
-	case apperrors.CodeInternal:
-		slog.Error("内部エラー", "error", err)
-		message = "サーバー内部エラーが発生しました"
+	status, ok := statusByCode[code]
+	if !ok {
+		// 内部エラーの詳細はログにのみ残し、クライアントへは一般化したメッセージを返す
+		slog.ErrorContext(r.Context(), "内部エラー", logging.Err(err))
+		writeJSON(w, r, http.StatusInternalServerError, errorBody{Error: errorDetail{
+			Code: apperrors.CodeInternal, Message: "サーバー内部エラーが発生しました"}})
+		return
 	}
-	var ae *apperrors.AppError
-	if errors.As(err, &ae) && code != apperrors.CodeInternal {
-		message = ae.Message
+	message := apperrors.MessageOf(err)
+	if message == "" {
+		message = "リクエストを処理できませんでした"
 	}
-	writeJSON(w, status, errorBody{Error: errorDetail{Code: code, Message: message}})
+	writeJSON(w, r, status, errorBody{Error: errorDetail{Code: code, Message: message}})
 }
 
 // decodeBody はリクエスト body を JSON デコードする。
@@ -111,7 +112,6 @@ func decodeOptionalBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	return nil
 }
 
-// wrapDecodeError は JSON デコードエラーを HTTP エラーへ変換する。
 func wrapDecodeError(err error) error {
 	var maxErr *http.MaxBytesError
 	if errors.As(err, &maxErr) {
@@ -121,7 +121,6 @@ func wrapDecodeError(err error) error {
 	return apperrors.Wrap(err, apperrors.CodeBadRequest, "リクエスト body の JSON が不正です")
 }
 
-// yearParam はクエリまたはパスの year を FiscalYear として取り出す。
 func yearParam(value string) (model.FiscalYear, error) {
 	n, err := strconv.Atoi(value)
 	if err != nil {
@@ -134,7 +133,6 @@ func yearParam(value string) (model.FiscalYear, error) {
 	return year, nil
 }
 
-// idParam はパスの {id} を int64 として取り出す。
 func idParam(r *http.Request) (int64, error) {
 	raw := r.PathValue("id")
 	id, err := strconv.ParseInt(raw, 10, 64)

@@ -22,16 +22,13 @@ import (
 	"github.com/ZONO33LHD/kakutei/usecase"
 )
 
-// Config はサーバーの起動設定。
 type Config struct {
-	// DBPath は SQLite データベースのファイルパス。
 	DBPath string
 	// Addr は HTTP サーバーの待受アドレス。
 	// 確定申告データはローカル利用前提のため、既定はループバックに限定する。
 	Addr string
 }
 
-// DefaultConfig は既定の設定を返す。
 func DefaultConfig() Config {
 	return Config{
 		DBPath: "kakutei.db",
@@ -111,10 +108,8 @@ func New(ctx context.Context, cfg Config) (reg *Registry, err error) {
 	return &Registry{db: sqlDB, router: router}, nil
 }
 
-// Router は組み立て済みの HTTP ハンドラを返す。
 func (r *Registry) Router() http.Handler { return r.router }
 
-// Close は保持リソースを解放する。
 func (r *Registry) Close() error {
 	return r.db.Close()
 }

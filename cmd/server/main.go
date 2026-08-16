@@ -2,8 +2,10 @@
 //
 // 環境変数:
 //
-//	KAKUTEI_DB_PATH: SQLite ファイルパス (既定: kakutei.db)
-//	KAKUTEI_ADDR:    待受アドレス (既定: 127.0.0.1:8080)
+//	KAKUTEI_DB_PATH:    SQLite ファイルパス (既定: kakutei.db)
+//	KAKUTEI_ADDR:       待受アドレス (既定: 127.0.0.1:8080)
+//	KAKUTEI_LOG_LEVEL:  ログレベル debug/info/warn/error (既定: info)
+//	KAKUTEI_LOG_FORMAT: ログ形式 json/text (既定: json)
 package main
 
 import (
@@ -16,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ZONO33LHD/kakutei/logging"
 	"github.com/ZONO33LHD/kakutei/registry"
 )
 
@@ -27,6 +30,8 @@ func main() {
 }
 
 func run() error {
+	slog.SetDefault(logging.New(logging.FromEnv()))
+
 	cfg := registry.DefaultConfig()
 	if v := os.Getenv("KAKUTEI_DB_PATH"); v != "" {
 		cfg.DBPath = v

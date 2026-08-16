@@ -3,6 +3,7 @@ package rest_test
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -467,6 +468,29 @@ func TestSecurityGuards(t *testing.T) {
 	}
 }
 
+// 全レスポンスにリクエストIDが採番される (ログとの突合用)。
+func TestRequestIDHeader(t *testing.T) {
+	server := newTestServer(t)
+	getID := func() string {
+		resp, err := server.Client().Get(server.URL + "/health")
+		if err != nil {
+			t.Fatalf("Get: %v", err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d", resp.StatusCode)
+		}
+		return resp.Header.Get("X-Request-Id")
+	}
+	id1, id2 := getID(), getID()
+	if _, err := hex.DecodeString(id1); err != nil || len(id1) != 32 {
+		t.Errorf("X-Request-Id = %q (128bit の hex であるべき)", id1)
+	}
+	if id1 == id2 {
+		t.Errorf("リクエストごとに異なる ID が採番されるべき: %q", id1)
+	}
+}
+
 func TestErrorMapping(t *testing.T) {
 	server := newTestServer(t)
 	setupYear(t, server)
@@ -491,6 +515,17 @@ func TestErrorMapping(t *testing.T) {
 			status, body := doJSON(t, server, tt.method, tt.path, tt.body)
 			if status != tt.want {
 				t.Errorf("status = %d, want %d (%v)", status, tt.want, body)
+			}
+			// 4xx はコードと具体的なメッセージを返す (空メッセージ・詳細漏えいの防止)
+			detail, _ := body["Error"].(map[string]any)
+			if detail == nil {
+				t.Fatalf("Error 形式でない: %v", body)
+			}
+			if code, _ := detail["Code"].(string); code == "" || code == "INTERNAL" {
+				t.Errorf("4xx のコードが不正: %v", detail)
+			}
+			if msg, _ := detail["Message"].(string); msg == "" {
+				t.Errorf("メッセージが空: %v", detail)
 			}
 		})
 	}

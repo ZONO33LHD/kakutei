@@ -22,13 +22,13 @@ type Usecases struct {
 func NewRouter(uc Usecases, allowedHosts ...string) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"Status": "ok"})
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, r, http.StatusOK, map[string]string{"Status": "ok"})
 	})
 
 	// 未登録パスも JSON エラーで応答する (API 規約の一貫性)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusNotFound, errorBody{Error: errorDetail{
+		writeJSON(w, r, http.StatusNotFound, errorBody{Error: errorDetail{
 			Code: "NOT_FOUND", Message: "エンドポイントが見つかりません: " + r.URL.Path,
 		}})
 	})
@@ -69,11 +69,11 @@ func NewRouter(uc Usecases, allowedHosts ...string) http.Handler {
 	mux.HandleFunc("POST /api/filing/furusato-summary", filing.FurusatoSummary)
 	mux.HandleFunc("GET /api/filing/depreciation", filing.Depreciation)
 
-	// AccessLog を最も外側に置き、panic 時 (Recover が 500 を返すケース) も記録する。
-	return Chain(mux, AccessLog, Recover, HostGuard(allowedHosts...), RequireJSONContentType)
+	// RequestID を最も外側に置き、AccessLog を含む全ログに request_id を付与する。
+	// AccessLog は Recover より外側で、panic 時 (500) も記録する。
+	return Chain(mux, RequestID, AccessLog, Recover, HostGuard(allowedHosts...), RequireJSONContentType)
 }
 
-// registerMaterials は申告資料の全 CRUD ルートを登録する。
 func registerMaterials(mux *http.ServeMux, m *usecase.Materials) {
 	// 配偶者 (年度1件) は年度キーの upsert のため専用ルート
 	spouse := NewSpouseHandler(m.Spouse)

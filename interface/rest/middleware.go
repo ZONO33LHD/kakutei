@@ -1,16 +1,19 @@
 package rest
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"log/slog"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
+	"github.com/ZONO33LHD/kakutei/logging"
 )
 
-// statusRecorder はレスポンスのステータスコードを記録する。
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
@@ -21,13 +24,25 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
+// RequestID は各リクエストに ID を採番して context とレスポンスヘッダに載せる。
+// レスポンスとログを request_id で相関させるため、以降の全ログに自動付与される。
+func RequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var buf [16]byte
+		_, _ = rand.Read(buf[:])
+		id := hex.EncodeToString(buf[:])
+		w.Header().Set("X-Request-Id", id)
+		next.ServeHTTP(w, r.WithContext(logging.WithRequestID(r.Context(), id)))
+	})
+}
+
 // AccessLog はリクエストのメソッド・パス・ステータス・所要時間を記録する。
 func AccessLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
-		slog.Info("access",
+		slog.InfoContext(r.Context(), "access",
 			"method", r.Method, "path", r.URL.Path,
 			"status", rec.status, "duration", time.Since(start).String())
 	})
@@ -39,8 +54,10 @@ func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.Error("handler panic", "panic", rec, "path", r.URL.Path)
-				writeError(w, apperrors.New(apperrors.CodeInternal, "サーバー内部エラーが発生しました"))
+				slog.ErrorContext(r.Context(), "handler panic",
+					"panic", rec, "path", r.URL.Path, "stack", string(debug.Stack()))
+				writeJSON(w, r, http.StatusInternalServerError, errorBody{Error: errorDetail{
+					Code: apperrors.CodeInternal, Message: "サーバー内部エラーが発生しました"}})
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -55,7 +72,6 @@ func Chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler 
 	return h
 }
 
-// mutationMethods は状態変更を伴う HTTP メソッド。
 var mutationMethods = map[string]bool{
 	http.MethodPost: true, http.MethodPut: true,
 	http.MethodPatch: true, http.MethodDelete: true,
@@ -71,12 +87,12 @@ func RequireJSONContentType(next http.Handler) http.Handler {
 		if mutationMethods[r.Method] && r.ContentLength != 0 {
 			ct := r.Header.Get("Content-Type")
 			if ct != "" && !isJSONContentType(ct) {
-				writeError(w, apperrors.New(apperrors.CodeBadRequest,
+				writeError(w, r, apperrors.New(apperrors.CodeBadRequest,
 					"Content-Type は application/json を指定してください"))
 				return
 			}
 			if ct == "" {
-				writeError(w, apperrors.New(apperrors.CodeBadRequest,
+				writeError(w, r, apperrors.New(apperrors.CodeBadRequest,
 					"変更系リクエストには Content-Type: application/json が必要です"))
 				return
 			}
@@ -108,7 +124,7 @@ func HostGuard(allowed ...string) func(http.Handler) http.Handler {
 				host = h
 			}
 			if !permitted[host] {
-				writeError(w, apperrors.Newf(apperrors.CodeBadRequest, "許可されていない Host です: %q", r.Host))
+				writeError(w, r, apperrors.Newf(apperrors.CodeBadRequest, "許可されていない Host です: %q", r.Host))
 				return
 			}
 			next.ServeHTTP(w, r)
