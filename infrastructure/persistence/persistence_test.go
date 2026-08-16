@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
@@ -163,6 +164,16 @@ func TestJournalRepositoryCRUD(t *testing.T) {
 	// 同一内容は一意制約で CodeConflict
 	_, err = repo.Create(ctx, sampleEntry(t, "2025-04-01", "取引先A", 110_000))
 	assertCode(t, err, apperrors.CodeConflict)
+
+	// バッチ登録の失敗は何件目かが前置され、原因の理由とコードも残る
+	_, err = repo.CreateBatch(ctx, []model.JournalEntry{
+		*sampleEntry(t, "2025-04-05", "取引先C", 55_000),
+		*sampleEntry(t, "2025-04-01", "取引先A", 110_000), // 既存と重複
+	})
+	assertCode(t, err, apperrors.CodeConflict)
+	if msg := apperrors.MessageOf(err); !strings.Contains(msg, "2 件目") || !strings.Contains(msg, "既に登録") {
+		t.Errorf("バッチ重複エラーのメッセージが不十分: %q", msg)
+	}
 
 	// 取引先が違えば登録できる (ハッシュに取引先を含む)
 	if _, err := repo.Create(ctx, sampleEntry(t, "2025-04-01", "取引先B", 110_000)); err != nil {

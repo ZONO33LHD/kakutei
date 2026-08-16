@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
+	"github.com/morikuni/failure"
 )
 
 // isUniqueViolation は SQLite の一意制約違反かどうかを判定する。
@@ -27,7 +27,6 @@ func wrapInternal(err error, operation string) error {
 	return apperrors.Wrap(err, apperrors.CodeInternal, operation+"に失敗しました")
 }
 
-// notFound は対象が存在しないエラーを返す。
 func notFound(what string) error {
 	return apperrors.Newf(apperrors.CodeNotFound, "%sが見つかりません", what)
 }
@@ -40,7 +39,11 @@ func inTx(ctx context.Context, db *sql.DB, fn func(tx *sql.Tx) error) error {
 	}
 	if err := fn(tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
-			return fmt.Errorf("%w (rollback も失敗: %v)", err, rbErr)
+			// ロールバック失敗は元エラーのコードによらず内部エラーとして扱う
+			// (4xx のまま返すと重大なトランザクション障害が隠れる)
+			return failure.Translate(err, apperrors.CodeInternal,
+				failure.Message("トランザクションのロールバックに失敗しました"),
+				failure.Context{"rollback_error": rbErr.Error()})
 		}
 		return err
 	}

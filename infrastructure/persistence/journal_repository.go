@@ -20,7 +20,6 @@ type JournalRepository struct {
 
 var _ repository.JournalRepository = (*JournalRepository)(nil)
 
-// NewJournalRepository は JournalRepository を生成する。
 func NewJournalRepository(db *sql.DB) *JournalRepository {
 	return &JournalRepository{db: db}
 }
@@ -122,7 +121,12 @@ func (r *JournalRepository) CreateBatch(ctx context.Context, entries []model.Jou
 		for i := range entries {
 			id, err := insertJournal(ctx, tx, &entries[i])
 			if err != nil {
-				return fmt.Errorf("%d 件目: %w", i+1, err)
+				// 何件目で失敗したかを原因メッセージに前置し、エラーコードは原因のものを保つ
+				msg := apperrors.MessageOf(err)
+				if msg == "" {
+					msg = "仕訳の登録に失敗しました"
+				}
+				return apperrors.Wrap(err, apperrors.CodeOf(err), fmt.Sprintf("%d 件目: %s", i+1, msg))
 			}
 			ids = append(ids, id)
 		}
@@ -134,7 +138,6 @@ func (r *JournalRepository) CreateBatch(ctx context.Context, entries []model.Jou
 	return ids, nil
 }
 
-// journalRow は journals テーブルの1行。
 type journalRow struct {
 	id           int64
 	fiscalYear   int
@@ -264,7 +267,6 @@ func (r *JournalRepository) FindByID(ctx context.Context, id int64) (*model.Jour
 	return &entries[0], nil
 }
 
-// ListByFiscalYear は年度内の全仕訳を返す。
 func (r *JournalRepository) ListByFiscalYear(ctx context.Context, year model.FiscalYear) ([]model.JournalEntry, error) {
 	return loadEntries(ctx, r.db, "WHERE fiscal_year = ? ORDER BY date, id", int(year))
 }
@@ -308,7 +310,6 @@ func (r *JournalRepository) Search(ctx context.Context, q repository.JournalSear
 	return entries, total, nil
 }
 
-// buildSearchWhere は検索条件から WHERE 句を組み立てる。
 func buildSearchWhere(q repository.JournalSearchQuery) (string, []any) {
 	conds := []string{"fiscal_year = ?"}
 	args := []any{int(q.FiscalYear)}
@@ -348,7 +349,6 @@ func buildSearchWhere(q repository.JournalSearchQuery) (string, []any) {
 	return "WHERE " + strings.Join(conds, " AND "), args
 }
 
-// escapeLike は LIKE パターンのメタ文字をエスケープする。
 func escapeLike(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, "%", `\%`)

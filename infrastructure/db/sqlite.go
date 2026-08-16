@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ZONO33LHD/kakutei/domain/apperrors"
+
 	_ "modernc.org/sqlite" // database/sql ドライバ登録
 )
 
@@ -33,7 +35,7 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		escapeURIPath.Replace(path))
 	sqlDB, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("SQLite のオープンに失敗しました: %w", err)
+		return nil, apperrors.Wrap(err, apperrors.CodeInternal, "SQLite のオープンに失敗しました")
 	}
 	// modernc.org/sqlite は単一コネクションでの利用が安全
 	// (複数コネクションだと in-memory DB が分裂し、ファイル DB でもロック競合が増える)。
@@ -41,7 +43,7 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 
 	if err := sqlDB.PingContext(ctx); err != nil {
 		_ = sqlDB.Close()
-		return nil, fmt.Errorf("SQLite への接続確認に失敗しました: %w", err)
+		return nil, apperrors.Wrap(err, apperrors.CodeInternal, "SQLite への接続確認に失敗しました")
 	}
 	return sqlDB, nil
 }

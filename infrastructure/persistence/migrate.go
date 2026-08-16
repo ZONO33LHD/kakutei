@@ -4,8 +4,10 @@ package persistence
 import (
 	"context"
 	"database/sql"
+
 	_ "embed"
 	"fmt"
+	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 )
 
 //go:embed schema.sql
@@ -23,7 +25,7 @@ var migrations = []string{
 func Migrate(ctx context.Context, db *sql.DB) error {
 	var current int
 	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&current); err != nil {
-		return fmt.Errorf("スキーマバージョンの取得に失敗しました: %w", err)
+		return apperrors.Wrap(err, apperrors.CodeInternal, "スキーマバージョンの取得に失敗しました")
 	}
 	for v := current; v < len(migrations); v++ {
 		if err := applyMigration(ctx, db, v+1, migrations[v]); err != nil {
@@ -36,19 +38,19 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 func applyMigration(ctx context.Context, db *sql.DB, version int, ddl string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("マイグレーション v%d の開始に失敗しました: %w", version, err)
+		return apperrors.Wrap(err, apperrors.CodeInternal, fmt.Sprintf("マイグレーション v%d の開始に失敗しました", version))
 	}
 	if _, err := tx.ExecContext(ctx, ddl); err != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("マイグレーション v%d の適用に失敗しました: %w", version, err)
+		return apperrors.Wrap(err, apperrors.CodeInternal, fmt.Sprintf("マイグレーション v%d の適用に失敗しました", version))
 	}
 	// PRAGMA はプレースホルダを使えないため整数を直接埋め込む (外部入力ではない)
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", version)); err != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("スキーマバージョン v%d の記録に失敗しました: %w", version, err)
+		return apperrors.Wrap(err, apperrors.CodeInternal, fmt.Sprintf("スキーマバージョン v%d の記録に失敗しました", version))
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("マイグレーション v%d のコミットに失敗しました: %w", version, err)
+		return apperrors.Wrap(err, apperrors.CodeInternal, fmt.Sprintf("マイグレーション v%d のコミットに失敗しました", version))
 	}
 	return nil
 }
