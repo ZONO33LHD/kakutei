@@ -19,6 +19,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	reg, err := registry.New(context.Background(), registry.Config{
 		DBPath: filepath.Join(t.TempDir(), "rest.db"),
+		Addr:   "127.0.0.1:0",
 	})
 	if err != nil {
 		t.Fatalf("registry.New: %v", err)
@@ -374,6 +375,27 @@ func TestInvalidParamsSweep(t *testing.T) {
 		status, _ := doJSON(t, server, tt.method, tt.path, nil)
 		if status != http.StatusBadRequest {
 			t.Errorf("%s %s = %d, want 400", tt.method, tt.path, status)
+		}
+	}
+
+	// 検索の limit/offset の境界 (1〜1000 と非負のみ受理)
+	pagination := []struct {
+		query string
+		want  int
+	}{
+		{"limit=1", http.StatusOK},
+		{"limit=1000", http.StatusOK},
+		{"limit=0", http.StatusBadRequest},
+		{"limit=-1", http.StatusBadRequest},
+		{"limit=1001", http.StatusBadRequest},
+		{"limit=abc", http.StatusBadRequest},
+		{"offset=0", http.StatusOK},
+		{"offset=-1", http.StatusBadRequest},
+	}
+	for _, tt := range pagination {
+		status, _ := doJSON(t, server, "GET", "/api/journals?year=2025&"+tt.query, nil)
+		if status != tt.want {
+			t.Errorf("GET /api/journals?%s = %d, want %d", tt.query, status, tt.want)
 		}
 	}
 
