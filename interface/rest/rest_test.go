@@ -19,6 +19,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	reg, err := registry.New(context.Background(), registry.Config{
 		DBPath: filepath.Join(t.TempDir(), "rest.db"),
+		Addr:   "127.0.0.1:0",
 	})
 	if err != nil {
 		t.Fatalf("registry.New: %v", err)

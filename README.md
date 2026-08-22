@@ -61,6 +61,7 @@ make lint           # gofmt チェック + go vet + golangci-lint
 |---|---|---|
 | `KAKUTEI_DB_PATH` | `kakutei.db` | SQLite ファイルパス |
 | `KAKUTEI_ADDR` | `127.0.0.1:8080` | 待受アドレス |
+| `KAKUTEI_ALLOW_NONLOOPBACK` | 未設定 | `1` で非ループバック待受を許可 (既定は起動拒否。認証がないため要注意) |
 | `KAKUTEI_LOG_LEVEL` | `info` | ログレベル (`debug`/`info`/`warn`/`error`) |
 | `KAKUTEI_LOG_FORMAT` | `json` | ログ形式 (`json`/`text`) |
 | `KAKUTEI_LOG_TRACE` | `on` | エラーログの詳細トレース (`off` で無効化。トレースには絶対パス・原因メッセージが含まれる) |
@@ -116,6 +117,7 @@ curl -X POST 'localhost:8080/api/filing/consumption-tax?year=2025' \
 ## 設計上の判断・既知の制限
 
 - **単一ユーザーのローカル利用が前提**: 認証なし・既定でループバック待受。SQLite を採用。ブラウザ経由の攻撃 (CSRF/DNS rebinding) 対策として、変更系リクエストは `Content-Type: application/json` を必須とし、Host ヘッダをローカルホスト系に限定
+- **非ループバック待受は既定で起動拒否**: 認証がないため、`KAKUTEI_ADDR` をループバック以外にする場合は `KAKUTEI_ALLOW_NONLOOPBACK=1` の明示的なオプトインが必要。その場合も **HostGuard は Host ヘッダ検証にすぎず認証の代替にはならない**ので、リバースプロキシ等で必ず認証を追加すること
 - 保険料控除は保険契約 (`insurance-policies`) を正とし、未登録時のみ源泉徴収票の欄をフォールバック (二重計上防止)
 - 減価償却は計算結果を返すのみで自動起票しない (決算整理仕訳の起票材料)
 - 未対応: 消費税の個別対応方式 (一括比例配分のみ)、簡易課税の複数事業区分/75%特例、給与+年金の所得金額調整控除、証券投資信託の配当控除軽減率、株式/FX/仮想通貨の分離課税、CSV取込・OCR・PDF出力・e-Tax連携
