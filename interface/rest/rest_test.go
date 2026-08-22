@@ -378,6 +378,27 @@ func TestInvalidParamsSweep(t *testing.T) {
 		}
 	}
 
+	// 検索の limit/offset の境界 (1〜1000 と非負のみ受理)
+	pagination := []struct {
+		query string
+		want  int
+	}{
+		{"limit=1", http.StatusOK},
+		{"limit=1000", http.StatusOK},
+		{"limit=0", http.StatusBadRequest},
+		{"limit=-1", http.StatusBadRequest},
+		{"limit=1001", http.StatusBadRequest},
+		{"limit=abc", http.StatusBadRequest},
+		{"offset=0", http.StatusOK},
+		{"offset=-1", http.StatusBadRequest},
+	}
+	for _, tt := range pagination {
+		status, _ := doJSON(t, server, "GET", "/api/journals?year=2025&"+tt.query, nil)
+		if status != tt.want {
+			t.Errorf("GET /api/journals?%s = %d, want %d", tt.query, status, tt.want)
+		}
+	}
+
 	badID := []struct{ method, path string }{
 		{"PUT", "/api/journals/0"},
 		{"DELETE", "/api/journals/0"},

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 	"github.com/ZONO33LHD/kakutei/domain/model"
 	"github.com/ZONO33LHD/kakutei/domain/repository"
 	"github.com/ZONO33LHD/kakutei/usecase"
@@ -72,6 +73,9 @@ func (h *JournalHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, r, http.StatusOK, entry)
 }
 
+// maxSearchLimit は検索1ページの上限 (暗黙の切り詰めをせず 400 で明示する)。
+const maxSearchLimit = 1_000
+
 // Search は GET /api/journals?year=...&...。
 func (h *JournalHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q, err := parseSearchQuery(r)
@@ -126,12 +130,13 @@ func parseSearchQuery(r *http.Request) (repository.JournalSearchQuery, error) {
 		q.AmountMax = model.Money(n)
 	}
 	if v := values.Get("limit"); v != "" {
-		if q.Limit, err = strconv.Atoi(v); err != nil {
-			return q, badQuery("limit", v)
+		if q.Limit, err = strconv.Atoi(v); err != nil || q.Limit < 1 || q.Limit > maxSearchLimit {
+			return q, apperrors.Newf(apperrors.CodeBadRequest,
+				"limit は 1〜%d で指定してください: %q", maxSearchLimit, v)
 		}
 	}
 	if v := values.Get("offset"); v != "" {
-		if q.Offset, err = strconv.Atoi(v); err != nil {
+		if q.Offset, err = strconv.Atoi(v); err != nil || q.Offset < 0 {
 			return q, badQuery("offset", v)
 		}
 	}
