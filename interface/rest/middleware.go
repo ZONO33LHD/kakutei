@@ -1,14 +1,14 @@
 package rest
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"log/slog"
 	"net"
 	"net/http"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 	"github.com/ZONO33LHD/kakutei/logging"
@@ -24,13 +24,12 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
-// RequestID は各リクエストに ID を採番して context とレスポンスヘッダに載せる。
+// RequestID は各リクエストに ID (UUIDv7: 時刻順に整列しログ追跡しやすい) を
+// 採番して context とレスポンスヘッダに載せる。
 // レスポンスとログを request_id で相関させるため、以降の全ログに自動付与される。
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var buf [16]byte
-		_, _ = rand.Read(buf[:])
-		id := hex.EncodeToString(buf[:])
+		id := uuid.NewV7().String()
 		w.Header().Set("X-Request-Id", id)
 		next.ServeHTTP(w, r.WithContext(logging.WithRequestID(r.Context(), id)))
 	})
@@ -66,8 +65,8 @@ func Recover(next http.Handler) http.Handler {
 
 // Chain は middleware を左から順に適用する (左が最も外側)。
 func Chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
-	for i := len(mws) - 1; i >= 0; i-- {
-		h = mws[i](h)
+	for _, mw := range slices.Backward(mws) {
+		h = mw(h)
 	}
 	return h
 }

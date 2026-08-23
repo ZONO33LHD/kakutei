@@ -3,7 +3,6 @@ package rest_test
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"uuid"
 
 	"github.com/ZONO33LHD/kakutei/registry"
 )
@@ -507,8 +507,12 @@ func TestRequestIDHeader(t *testing.T) {
 		return resp.Header.Get("X-Request-Id")
 	}
 	id1, id2 := getID(), getID()
-	if _, err := hex.DecodeString(id1); err != nil || len(id1) != 32 {
-		t.Errorf("X-Request-Id = %q (128bit の hex であるべき)", id1)
+	u, err := uuid.Parse(id1)
+	if err != nil || u.String() != id1 {
+		t.Errorf("X-Request-Id = %q (canonical な UUID であるべき): %v", id1, err)
+	}
+	if version := u[6] >> 4; version != 7 {
+		t.Errorf("UUID バージョン = %d, want 7 (時刻順)", version)
 	}
 	if id1 == id2 {
 		t.Errorf("リクエストごとに異なる ID が採番されるべき: %q", id1)
