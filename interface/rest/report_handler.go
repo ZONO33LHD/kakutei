@@ -93,7 +93,9 @@ func (h *ReportHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"Accounts": accounts})
+	writeJSON(w, r, http.StatusOK, struct {
+		Accounts []model.Account
+	}{accounts})
 }
 
 // SetOpeningBalance は POST /api/opening-balances。
@@ -122,7 +124,9 @@ func (h *ReportHandler) ListOpeningBalances(w http.ResponseWriter, r *http.Reque
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"OpeningBalances": balances})
+	writeJSON(w, r, http.StatusOK, struct {
+		OpeningBalances []model.OpeningBalance
+	}{balances})
 }
 
 // DeleteOpeningBalance は DELETE /api/opening-balances/{id}。

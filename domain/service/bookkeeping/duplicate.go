@@ -108,7 +108,7 @@ func (s *DuplicateService) FindDuplicatePairs(
 	}
 
 	for _, indices := range groups {
-		for a := 0; a < len(indices); a++ {
+		for a := range indices {
 			for b := a + 1; b < len(indices); b++ {
 				ea, eb := &entries[indices[a]], &entries[indices[b]]
 				score, reason := scorePair(ea, eb)

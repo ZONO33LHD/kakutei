@@ -3,7 +3,7 @@ package persistence
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+	"encoding/json" // 保存済み JSON 文書の表現を変えないため v1 を維持 (REST 境界は json/v2)
 	"errors"
 	"fmt"
 

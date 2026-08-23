@@ -30,7 +30,9 @@ func (h *FiscalYearHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusCreated, map[string]any{"Year": req.Year})
+	writeJSON(w, r, http.StatusCreated, struct {
+		Year model.FiscalYear
+	}{req.Year})
 }
 
 // List は GET /api/fiscal-years。
@@ -40,7 +42,9 @@ func (h *FiscalYearHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"Years": years})
+	writeJSON(w, r, http.StatusOK, struct {
+		Years []model.FiscalYearStatus
+	}{years})
 }
 
 // Close は POST /api/fiscal-years/{year}/close。
@@ -54,7 +58,10 @@ func (h *FiscalYearHandler) Close(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"Year": year, "State": model.FiscalYearClosed})
+	writeJSON(w, r, http.StatusOK, struct {
+		Year  model.FiscalYear
+		State model.FiscalYearState
+	}{year, model.FiscalYearClosed})
 }
 
 // Reopen は POST /api/fiscal-years/{year}/reopen。
@@ -68,5 +75,8 @@ func (h *FiscalYearHandler) Reopen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"Year": year, "State": model.FiscalYearOpen})
+	writeJSON(w, r, http.StatusOK, struct {
+		Year  model.FiscalYear
+		State model.FiscalYearState
+	}{year, model.FiscalYearOpen})
 }

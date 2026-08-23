@@ -68,7 +68,7 @@ make lint           # gofmt チェック + go vet + golangci-lint
 
 ## API 概要
 
-JSON フィールド名は Go の公開フィールド名 (PascalCase)。金額は円単位の整数、日付は `YYYY-MM-DD`。
+JSON フィールド名は Go の公開フィールド名 (PascalCase) で、**大文字小文字も厳密に照合**する (encoding/json/v2)。未知フィールド・重複キー・不正な UTF-8 は 400 で拒否。金額は円単位の整数、日付は `YYYY-MM-DD`。
 変更系リクエストには `Content-Type: application/json` が必須、一覧系は `?year=` が必須です。
 
 ```bash

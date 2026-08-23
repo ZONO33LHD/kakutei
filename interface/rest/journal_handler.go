@@ -7,6 +7,7 @@ import (
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 	"github.com/ZONO33LHD/kakutei/domain/model"
 	"github.com/ZONO33LHD/kakutei/domain/repository"
+	"github.com/ZONO33LHD/kakutei/domain/service/bookkeeping"
 	"github.com/ZONO33LHD/kakutei/usecase"
 )
 
@@ -55,7 +56,10 @@ func (h *JournalHandler) AddBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusCreated, map[string]any{"IDs": ids, "Warnings": warnings})
+	writeJSON(w, r, http.StatusCreated, struct {
+		IDs      []int64
+		Warnings []bookkeeping.DuplicateWarning
+	}{ids, warnings})
 }
 
 // Get は GET /api/journals/{id}。
@@ -88,7 +92,10 @@ func (h *JournalHandler) Search(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"Journals": entries, "TotalCount": total})
+	writeJSON(w, r, http.StatusOK, struct {
+		Journals   []model.JournalEntry
+		TotalCount int
+	}{entries, total})
 }
 
 func parseSearchQuery(r *http.Request) (repository.JournalSearchQuery, error) {
@@ -189,7 +196,9 @@ func (h *JournalHandler) AuditLogs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"AuditLogs": logs})
+	writeJSON(w, r, http.StatusOK, struct {
+		AuditLogs []model.JournalAuditLog
+	}{logs})
 }
 
 // CheckDuplicates は GET /api/journals/duplicates?year=&threshold=。

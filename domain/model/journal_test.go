@@ -97,6 +97,24 @@ func TestJournalEntryTotals(t *testing.T) {
 	}
 }
 
+// ContentHash の値は DB の content_hash 列 (一意制約) に保存済みのため、
+// 正規化形式やハッシュ計算を変更すると既存データの重複検出が壊れる。
+// この golden 値の変化は互換性破壊の合図。
+func TestContentHashGolden(t *testing.T) {
+	d, _ := ParseDate("2025-04-01")
+	e := JournalEntry{
+		FiscalYear: 2025, Date: d, Counterparty: "取引先A",
+		Lines: []JournalLine{
+			{Side: SideDebit, AccountCode: "1002", Amount: 110_000},
+			{Side: SideCredit, AccountCode: "4001", Amount: 110_000, TaxCategory: LineTaxTaxable10, TaxAmount: 10_000},
+		},
+	}
+	const want = "7d2cded217c9c7c30a27372e8899cf5f428b5e7d01ef2b852bcc802c3018af4a"
+	if got := e.ContentHash(); got != want {
+		t.Errorf("ContentHash = %s, want %s (形式変更は保存済みデータとの互換性を壊す)", got, want)
+	}
+}
+
 func TestContentHashLineOrderIndependent(t *testing.T) {
 	e1 := validEntry()
 	e2 := validEntry()
