@@ -46,7 +46,7 @@ infrastructure/
 
 ## セットアップ
 
-要件: Go 1.26.6+ (CGO 不要)
+要件: Go 1.27.0+ (CGO 不要)
 
 ```bash
 make build          # bin/server を生成
