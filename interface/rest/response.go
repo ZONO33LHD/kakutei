@@ -10,7 +10,8 @@
 package rest
 
 import (
-	"encoding/json"
+	"bufio"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"log/slog"
@@ -40,7 +41,7 @@ func writeJSON(w http.ResponseWriter, r *http.Request, status int, payload any) 
 	if payload == nil {
 		return
 	}
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
+	if err := json.MarshalWrite(w, payload); err != nil {
 		slog.ErrorContext(r.Context(), "レスポンスの書き込みに失敗しました", "error", err)
 	}
 }
@@ -75,19 +76,11 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 
 // decodeBody はリクエスト body を JSON デコードする。
 // 未知フィールド・末尾の余分なデータは拒否し、サイズ超過は 413 相当のエラーを返す。
+// decodeBody は json/v2 で厳格にデコードする: 未知フィールド・重複キー・
+// 末尾の余分なデータ・不正な UTF-8 は全て拒否し、サイズ超過は 413 相当を返す。
 func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(dst); err != nil {
-		return wrapDecodeError(err)
-	}
-	// 末尾に余分なデータがないことを確認する
-	// (2つ目の JSON や巨大なゴミの黙殺による意図しない副作用を防ぐ)
-	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return apperrors.New(apperrors.CodeBadRequest, "リクエスト body に余分なデータがあります")
-		}
+	if err := json.UnmarshalRead(r.Body, dst, json.RejectUnknownMembers(true)); err != nil {
 		return wrapDecodeError(err)
 	}
 	return nil
@@ -95,26 +88,34 @@ func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
 
 // decodeOptionalBody は body が空 (省略) の場合は dst をゼロ値のままにする。
 // Content-Length に依存せず、実際の読み取りで空を判定する (chunked 転送対応)。
+// 全読みせず、先頭の JSON 空白 (RFC 8259) だけ読み飛ばして空かどうかを判定し、
+// 空でなければそのままストリーミングでデコードする。
 func decodeOptionalBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	err := dec.Decode(dst)
-	if errors.Is(err, io.EOF) {
-		return nil // 空 body は既定値
+	br := bufio.NewReader(r.Body)
+	for {
+		b, err := br.ReadByte()
+		if err == io.EOF {
+			return nil // 空 body は既定値
+		}
+		if err != nil {
+			return wrapDecodeError(err)
+		}
+		switch b {
+		case ' ', '\t', '\r', '\n':
+			continue // JSON の空白は読み飛ばす。それ以外の空白文字は不正な body として扱う
+		}
+		_ = br.UnreadByte()
+		break
 	}
-	if err != nil {
+	if err := json.UnmarshalRead(br, dst, json.RejectUnknownMembers(true)); err != nil {
 		return wrapDecodeError(err)
-	}
-	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return apperrors.New(apperrors.CodeBadRequest, "リクエスト body に余分なデータがあります")
 	}
 	return nil
 }
 
 func wrapDecodeError(err error) error {
-	var maxErr *http.MaxBytesError
-	if errors.As(err, &maxErr) {
+	if maxErr, ok := errors.AsType[*http.MaxBytesError](err); ok {
 		return apperrors.Newf(apperrors.CodePayloadTooLarge,
 			"リクエスト body が大きすぎます (上限 %d バイト)", maxErr.Limit)
 	}

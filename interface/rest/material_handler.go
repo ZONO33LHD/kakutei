@@ -38,7 +38,9 @@ func (h *materialHandler[T]) list(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"Records": records})
+	writeJSON(w, r, http.StatusOK, struct {
+		Records []T
+	}{records})
 }
 
 func (h *materialHandler[T]) get(w http.ResponseWriter, r *http.Request) {

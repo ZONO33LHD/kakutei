@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ZONO33LHD/kakutei/registry"
@@ -510,6 +512,97 @@ func TestRequestIDHeader(t *testing.T) {
 	}
 	if id1 == id2 {
 		t.Errorf("リクエストごとに異なる ID が採番されるべき: %q", id1)
+	}
+}
+
+// json/v2 移行により、重複キー・不正 UTF-8 の body は 400 で拒否される
+// (v1 は重複キーを last-wins で黙認していた)。
+func TestStrictJSONDecoding(t *testing.T) {
+	server := newTestServer(t)
+	setupYear(t, server)
+
+	send := func(body string) int {
+		req, _ := http.NewRequest("POST", server.URL+"/api/fiscal-years", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatalf("Do: %v", err)
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := send(`{"Year":2026,"Year":2027}`); got != http.StatusBadRequest {
+		t.Errorf("重複キー = %d, want 400", got)
+	}
+	if got := send(`{"Year":2026} {}`); got != http.StatusBadRequest {
+		t.Errorf("末尾の余分なデータ = %d, want 400", got)
+	}
+	// 既知の文字列フィールド (Name) への不正 UTF-8 バイト列注入
+	// (v1 は U+FFFD に置換して黙認 → 201 になるため、この 400 が v2 の検証の証拠)
+	badUTF8 := []byte(`{"FiscalYear":2025,"Name":"`)
+	badUTF8 = append(badUTF8, 0xff, 0xfe)
+	badUTF8 = append(badUTF8, []byte(`","Relationship":"子","BirthDate":"2010-01-01"}`)...)
+	req, _ := http.NewRequest("POST", server.URL+"/api/materials/dependents", bytes.NewReader(badUTF8))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := server.Client().Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("不正 UTF-8 = %d, want 400", resp.StatusCode)
+	}
+
+	// 5MiB 上限超過は 413
+	big := `{"Year":` + strings.Repeat(" ", 5<<20) + `2026}`
+	if got := send(big); got != http.StatusRequestEntityTooLarge {
+		t.Errorf("上限超過 = %d, want 413", got)
+	}
+}
+
+// 省略可能 body: 空・JSON 空白のみは既定値で 200、JSON 外の空白は 400。
+func TestOptionalBody(t *testing.T) {
+	server := newTestServer(t)
+	setupYear(t, server)
+
+	send := func(body string) int {
+		req, _ := http.NewRequest("POST", server.URL+"/api/filing/sanity-check?year=2025", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatalf("Do: %v", err)
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := send(""); got != http.StatusOK {
+		t.Errorf("空 body = %d, want 200", got)
+	}
+	if got := send(" \t\r\n"); got != http.StatusOK {
+		t.Errorf("JSON 空白のみ = %d, want 200", got)
+	}
+	if got := send("\v"); got != http.StatusBadRequest {
+		t.Errorf("JSON 外の空白 = %d, want 400", got)
+	}
+}
+
+// json/v2 は nil スライスを [] として返す (null ではなく)。API 契約として固定する。
+// 併せて代表レスポンスの wire 形式 (フィールド順・[] 表現) を golden で固定する。
+func TestEmptyListsAreArrays(t *testing.T) {
+	server := newTestServer(t)
+	setupYear(t, server)
+
+	resp, err := server.Client().Get(server.URL + "/api/journals?year=2025")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	if got := string(raw); got != `{"Journals":[],"TotalCount":0}` {
+		t.Errorf("wire 形式が変化: %q", got)
 	}
 }
 
