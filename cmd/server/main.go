@@ -7,6 +7,7 @@
 //	KAKUTEI_LOG_LEVEL:  ログレベル debug/info/warn/error (既定: info)
 //	KAKUTEI_LOG_FORMAT: ログ形式 json/text (既定: json)
 //	KAKUTEI_LOG_TRACE:  エラーログの詳細トレース (off で無効化、既定: 有効)
+//	KAKUTEI_ALLOW_NONLOOPBACK: 1 で非ループバック待受を許可 (既定: 拒否。認証がないため要注意)
 package main
 
 import (

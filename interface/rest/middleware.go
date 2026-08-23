@@ -113,7 +113,7 @@ func HostGuard(allowed ...string) func(http.Handler) http.Handler {
 	permitted := map[string]bool{"localhost": true, "127.0.0.1": true, "::1": true, "[::1]": true}
 	for _, h := range allowed {
 		if h != "" {
-			permitted[h] = true
+			permitted[strings.ToLower(h)] = true
 		}
 	}
 	return func(next http.Handler) http.Handler {
@@ -123,7 +123,8 @@ func HostGuard(allowed ...string) func(http.Handler) http.Handler {
 			if h, _, err := net.SplitHostPort(host); err == nil {
 				host = h
 			}
-			if !permitted[host] {
+			// DNS 名は大文字小文字を区別しないため小文字に正規化して比較する
+			if !permitted[strings.ToLower(host)] {
 				writeError(w, r, apperrors.Newf(apperrors.CodeBadRequest, "許可されていない Host です: %q", r.Host))
 				return
 			}

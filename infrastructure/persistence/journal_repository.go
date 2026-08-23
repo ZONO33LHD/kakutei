@@ -212,6 +212,12 @@ func loadEntries(ctx context.Context, q queryer, where string, args ...any) ([]m
 	return entries, nil
 }
 
+// 検索の1ページ上限。無制限の取得によるメモリ膨張を防ぐ。
+const (
+	searchDefaultLimit = 100
+	searchMaxLimit     = 1_000
+)
+
 // attachLinesChunkSize は IN 句の変数上限 (SQLite の既定 32,766) を超えないための分割単位。
 const attachLinesChunkSize = 500
 
@@ -297,7 +303,10 @@ func (r *JournalRepository) Search(ctx context.Context, q repository.JournalSear
 
 		limit := q.Limit
 		if limit <= 0 {
-			limit = 100
+			limit = searchDefaultLimit
+		}
+		if limit > searchMaxLimit {
+			limit = searchMaxLimit
 		}
 		pageArgs := append(append([]any{}, args...), limit, q.Offset)
 		var err error
