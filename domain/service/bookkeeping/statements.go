@@ -6,7 +6,7 @@
 package bookkeeping
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/ZONO33LHD/kakutei/domain/apperrors"
 	"github.com/ZONO33LHD/kakutei/domain/model"
@@ -117,7 +117,7 @@ func (s *StatementService) BuildTrialBalance(
 	for code := range sums {
 		codes = append(codes, code)
 	}
-	sort.Slice(codes, func(i, j int) bool { return codes[i] < codes[j] })
+	slices.Sort(codes)
 
 	tb := &TrialBalance{FiscalYear: year}
 	for _, code := range codes {

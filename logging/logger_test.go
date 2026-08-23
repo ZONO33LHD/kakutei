@@ -59,7 +59,7 @@ func TestConcurrentLogging(t *testing.T) {
 	derived := logger.With("component", "worker").WithGroup("g")
 
 	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -199,7 +199,7 @@ func TestErrAttrWrappedChain(t *testing.T) {
 		}
 	}
 	// 先頭行 (最も外側のラップ地点) は facade でなく呼び出し元 (このテスト) を指す
-	firstLine := strings.SplitN(trace, "\n", 2)[0]
+	firstLine, _, _ := strings.Cut(trace, "\n")
 	if !strings.Contains(firstLine, "logger_test.go") || strings.Contains(firstLine, "errors.go") {
 		t.Errorf("trace の先頭行がラップ元を指していない: %q", firstLine)
 	}
